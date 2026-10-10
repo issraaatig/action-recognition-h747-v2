@@ -1,0 +1,117 @@
+STEdgeAI Core v9.0.0-19802
+Created date          : 2026-10-11 00:15:59
+Parameters            : analyze -m GT_gru_rm/model.h5 --target stm32h7 -w st_ai_ws/gru -o GT_gru_rm/st_ai_out
+
+Exec/report summary (analyze)
+-------------------------------------------------------------------------------------------
+model file         :   D:\action-recognition-h747\pc\models\temporal\GT_gru_rm\model.h5    
+type               :   keras                                                               
+c_name             :   network                                                             
+compression        :   lossless                                                            
+optimization       :   balanced                                                            
+target/series      :   stm32h7                                                             
+workspace dir      :   D:\action-recognition-h747\pc\models\temporal\st_ai_ws\gru          
+output dir         :   D:\action-recognition-h747\pc\models\temporal\GT_gru_rm\st_ai_out   
+model_fmt          :   float                                                               
+model_name         :   model                                                               
+model_hash         :   0xfd42beea7f49a048127f9bc2cd8a3e98                                  
+params #           :   6,534 items (25.52 KiB)                                             
+-------------------------------------------------------------------------------------------
+input 1/1          :   'input_1', f32(1x16x32), 2.00 KBytes, user                          
+output 1/1         :   'probs', f32(1x6), 24 Bytes, user                                   
+macc               :   99,616                                                              
+weights (ro)       :   26,136 B (25.52 KiB) (1 segment)                                    
+activations (rw)   :   896 B (896 B) (1 segment)                                           
+ram (total)        :   2,968 B (2.90 KiB) = 896 + 2,048 + 24                               
+-------------------------------------------------------------------------------------------
+
+Model name - model
+------ ----------------------------- ----------------- -------------- -------- -------------- --- -------- -------------- ------------------------------- 
+m_id   layer (type,original)         oshape            param/size         macc   connected to   | c_size   c_macc         c_type                          
+------ ----------------------------- ----------------- -------------- -------- -------------- --- -------- -------------- ------------------------------- 
+0      input_1 (Input, InputLayer)   [b:1,h:16,c:32]                                            |                         
+------ ----------------------------- ----------------- -------------- -------- -------------- --- -------- -------------- ------------------------------- 
+1      gru (GRU, GRU)                [b:1,c:32]        6,336/25,344     99,328        input_1   |                         GRU_[0]                         
+------ ----------------------------- ----------------- -------------- -------- -------------- --- -------- -------------- ------------------------------- 
+2      probs_dense (Dense, Dense)    [b:1,c:6]         198/792             198            gru   |          +90(+45.5%)    Dense_/Nonlinearity_[o][1, 2]   
+       probs (Nonlinearity, Dense)   [b:1,c:6]                              90    probs_dense   |          -90(-100.0%)   
+------ ----------------------------- ----------------- -------------- -------- -------------- --- -------- -------------- ------------------------------- 
+model/c-model: macc=99,616/99,616  weights=26,136/26,136  activations=--/896 io=--/2,072
+
+
+
+Generated C-graph summary
+------------------------------------------------------------------------------------------------------------------------
+model name            : model
+c-name                : network
+c-node #              : 3
+c-array #             : 10
+activations size      : 896 (1 segment)
+weights size          : 26136 (1 segment)
+macc                  : 99616
+inputs                : ['input_1_output']
+outputs               : ['probs_output']
+
+C-Arrays (10)
+------ --------------------- ------------ ------------------------- ------------- --------- 
+c_id   name (*_array)        item/size    domain/mem-pool           c-type        comment   
+------ --------------------- ------------ ------------------------- ------------- --------- 
+0      gru_bias              192/768      weights/weights           const float             
+1      gru_kernel            3072/12288   weights/weights           const float             
+2      gru_output0           32/128       activations/**default**   float                   
+3      gru_recurrent         3072/12288   weights/weights           const float             
+4      gru_scratch0          192/768      activations/**default**   float                   
+5      input_1_output        512/2048     user/                     float         /input    
+6      probs_dense_bias      6/24         weights/weights           const float             
+7      probs_dense_output    6/24         activations/**default**   float                   
+8      probs_dense_weights   192/768      weights/weights           const float             
+9      probs_output          6/24         user/                     float         /output   
+------ --------------------- ------------ ------------------------- ------------- --------- 
+
+C-Layers (3)
+------ ---------------- ---- --------------- ------- ------- ------------------------ ------------------ 
+c_id   name (*_layer)   id   layer_type      macc    rom     tensors                  shape (array id)   
+------ ---------------- ---- --------------- ------- ------- ------------------------ ------------------ 
+0      gru              1    GRU             99328   25344   I: input_1_output        f32(1x16x32) (5)   
+                                                             S: gru_scratch0                             
+                                                             W: gru_kernel            f32(96x32) (1)     
+                                                             W: gru_recurrent         f32(96x32) (3)     
+                                                             W: gru_bias              f32(2x96) (0)      
+                                                             O: gru_output0           f32(1x32) (2)      
+------ ---------------- ---- --------------- ------- ------- ------------------------ ------------------ 
+1      probs_dense      2    Dense           198     792     I: gru_output0           f32(1x32) (2)      
+                                                             W: probs_dense_weights   f32(6x32) (8)      
+                                                             W: probs_dense_bias      f32(6) (6)         
+                                                             O: probs_dense_output    f32(1x6) (7)       
+------ ---------------- ---- --------------- ------- ------- ------------------------ ------------------ 
+2      probs            2    Nonlinearity    90      0       I: probs_dense_output    f32(1x6) (7)       
+                                                             O: probs_output          f32(1x6) (9)       
+------ ---------------- ---- --------------- ------- ------- ------------------------ ------------------ 
+
+
+
+Number of operations per c-layer
+------- ------ ---------------------- -------- -------------- 
+c_id    m_id   name (type)                 #op           type 
+------- ------ ---------------------- -------- -------------- 
+0       1      gru (GRU)                99,328   smul_f32_f32 
+1       2      probs_dense (Dense)         198   smul_f32_f32 
+2       2      probs (Nonlinearity)         90     op_f32_f32 
+------- ------ ---------------------- -------- -------------- 
+total                                   99,616 
+
+Number of operation types
+---------------- -------- ----------- 
+operation type          #           % 
+---------------- -------- ----------- 
+smul_f32_f32       99,526       99.9% 
+op_f32_f32             90        0.1% 
+
+Complexity report (model)
+------ ------------- ------------------------- ------------------------- -------- 
+m_id   name          c_macc                    c_rom                     c_id     
+------ ------------- ------------------------- ------------------------- -------- 
+1      gru           ||||||||||||||||  99.7%   ||||||||||||||||  97.0%   [0]      
+2      probs_dense   |                  0.3%   |                  3.0%   [1, 2]   
+------ ------------- ------------------------- ------------------------- -------- 
+macc=99,616 weights=26,136 act=896 ram_io=2,072

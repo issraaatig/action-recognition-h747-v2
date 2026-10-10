@@ -15,3 +15,14 @@ Modèles NON entraînés, int8, `stedgeai analyze --target stm32h7` (X-CUBE-AI 9
 ## Précision
 | Modèle | Données | Métrique | Valeur |
 |---|---|---|---|
+
+## Modèle temporel — squelettes PARFAITS (annotations JHMDB, borne supérieure)
+Split 1, test officiel, fenêtres de 16 frames au pas 2. « Clip » = moyenne des fenêtres d'un clip.
+Variabilité observée d'un entraînement à l'autre : ± 5 points (petit jeu de test : ~266 clips).
+
+| Modèle | Features | Paramètres | Précision fenêtre | Précision clip | Poids / RAM X-CUBE-AI |
+|---|---|---|---|---|---|
+| TCN | 30 (spec) | 6 214 | 0.826 | 0.797 | — |
+| **TCN + root motion** | 32 | 6 406 | **0.861** | **0.838** | int8 : 15,5 Ko / 8,8 Ko ; float : 25 Ko / 3,9 Ko |
+| GRU | 30 | 6 342 | 0.759 | 0.759 | — |
+| GRU + root motion | 32 | 6 534 | 0.822 | 0.823 | float (.h5) : 25,5 Ko / 2,9 Ko |

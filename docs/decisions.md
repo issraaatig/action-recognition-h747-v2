@@ -29,3 +29,20 @@
 - F (α=0.75) dépasse le budget activations (406 Ko > 400 Ko) → écartée.
 - Candidates à entraîner : **A_hm128** (référence) et **E_hm128_a050** (plus précise, même RAM, +50 % MACC).
   Choix final selon précision PCK sur le split test et latence mesurée sur la carte.
+
+## D6 — Ajout du « root motion » (32 features au lieu de 30)
+- Avec l'origine sur `belly`, le déplacement global du corps disparaît (saut = tout le corps monte).
+- Ajout de 2 features : déplacement du belly depuis la frame précédente, divisé par l'échelle.
+- Gain mesuré sur squelettes parfaits : TCN +3 à +10 points, GRU +6 points ; confusion sit/stand réduite.
+- Conséquence firmware : le buffer est 16×32 et la normalisation C doit garder le belly précédent.
+
+## D7 — Fenêtres temporelles
+- Clips JHMDB courts (~34 frames) : un pas de 4 (8 FPS) donnerait des fenêtres de 61 frames → impossible.
+- Entraînement avec pas aléatoire ∈ {1, 2, 3} (robuste au FPS), évaluation au pas 2. Fenêtre plus longue que le clip :
+  la première frame est répétée (comme un buffer qui se remplit au démarrage).
+- À revoir quand le FPS réel de la carte sera mesuré.
+
+## D8 — Export du modèle temporel
+- TCN : `.tflite` int8 (entrée/sortie float, calcul int8) et float32. Les deux passent dans X-CUBE-AI 9.0.
+  Le TCN fait 25 Ko en float : la version float est un choix raisonnable (pas de perte de quantification).
+- GRU : X-CUBE-AI 9.0 refuse le GRU déroulé en `.tflite` (`Invalid size_splits [32 32 -1]`) → export `.h5` Keras.

@@ -28,3 +28,4 @@ firmware/**/.settings/
 Thumbs.db
 .vscode/
 pc/models/**/*.out
+!pc/models/temporal/**/model.h5
