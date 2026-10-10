@@ -1,0 +1,29 @@
+# Environnement Python
+pc/.venv/
+pc.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Données (JHMDB : plusieurs Go, non versionnées — voir README pour les télécharger)
+pc/data/
+
+# Fichiers temporaires de X-CUBE-AI (on garde seulement les rapports *_report.txt dans st_ai_out/)
+st_ai_ws/
+
+# Checkpoints d'entraînement lourds (on versionne seulement les .tflite finaux)
+pc/models/**/checkpoints/
+pc/models/**/*.keras
+pc/models/**/*.h5
+pc/models/**/logs/
+
+# Projet STM32CubeIDE : sorties de compilation
+firmware/**/Debug/
+firmware/**/Release/
+firmware/**/.settings/
+
+# OS / éditeurs
+.DS_Store
+.AppleDouble/
+Thumbs.db
+.vscode/

@@ -1,0 +1,8 @@
+# Python 3.11 — versions figées pour rester compatibles avec X-CUBE-AI 9.0
+tensorflow==2.15.1      # Keras 2 intégré ; génère des .tflite bien supportés par X-CUBE-AI 9
+numpy<2                 # TF 2.15 ne supporte pas numpy 2.x
+scipy                   # lecture des joint_positions.mat de JHMDB
+opencv-python           # lecture/redimensionnement des frames
+matplotlib              # visualisation des joints sur les images
+tqdm                    # barres de progression
+pyserial                # tools/uart_monitor.py (plus tard)
