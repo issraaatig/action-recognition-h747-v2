@@ -27,3 +27,4 @@ firmware/**/.settings/
 .AppleDouble/
 Thumbs.db
 .vscode/
+pc/models/**/*.out

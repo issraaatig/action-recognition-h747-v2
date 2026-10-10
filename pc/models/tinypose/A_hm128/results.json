@@ -1,0 +1,26 @@
+{
+ "variant": "A_hm128",
+ "epochs": 1,
+ "batch": 32,
+ "lr": 0.001,
+ "train_minutes": 0.3,
+ "pck_val": 0.1365969206474536,
+ "pck_test": 0.12480376766091052,
+ "pck_test_per_joint": {
+  "neck": 0.053,
+  "belly": 0.13,
+  "face": 0.032,
+  "R_shoulder": 0.085,
+  "L_shoulder": 0.116,
+  "R_hip": 0.124,
+  "L_hip": 0.141,
+  "R_elbow": 0.224,
+  "L_elbow": 0.192,
+  "R_knee": 0.159,
+  "L_knee": 0.135,
+  "R_wrist": 0.155,
+  "L_wrist": 0.162,
+  "R_ankle": 0.065,
+  "L_ankle": 0.046
+ }
+}

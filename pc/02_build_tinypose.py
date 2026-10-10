@@ -20,21 +20,11 @@ import numpy as np
 import tensorflow as tf
 
 sys.path.insert(0, str(Path(__file__).parent))
-from common.tinypose import build_tinypose  # noqa: E402
+from common.tinypose import VARIANTS, build_tinypose  # noqa: E402
 
 DATA = Path(__file__).parent / "data"
 OUT = Path(__file__).parent / "models" / "bench"
 
-VARIANTS = {
-    #  nom            : paramètres de build_tinypose
-    "A_hm128":       dict(input_size=128, head="heatmap", decoder_channels=(64, 32)),
-    "B_hm96":        dict(input_size=96,  head="heatmap", decoder_channels=(64, 32)),
-    "C_reg128":      dict(input_size=128, head="reg"),
-    "D_hm128_light": dict(input_size=128, head="heatmap", decoder_channels=(32, 32)),
-    # Variantes plus larges (backbone plus "épais") : plus précises mais plus lourdes
-    "E_hm128_a050":  dict(input_size=128, head="heatmap", decoder_channels=(64, 32), alpha=0.5),
-    "F_hm128_a075":  dict(input_size=128, head="heatmap", decoder_channels=(64, 32), alpha=0.75),
-}
 
 
 def calibration_images(size, n=100, seed=0):

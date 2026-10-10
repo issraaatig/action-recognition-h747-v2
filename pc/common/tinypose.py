@@ -16,6 +16,18 @@ NUM_JOINTS = 15
 # Dernière couche de MobileNetV2 encore à stride 16 (juste avant le bloc 13 qui passe à stride 32).
 CUT_LAYER = "block_13_expand_relu"
 
+# Variantes benchmarkées (docs/results.md) : nom -> paramètres de build_tinypose
+VARIANTS = {
+    #  nom            : paramètres de build_tinypose
+    "A_hm128":       dict(input_size=128, head="heatmap", decoder_channels=(64, 32)),
+    "B_hm96":        dict(input_size=96,  head="heatmap", decoder_channels=(64, 32)),
+    "C_reg128":      dict(input_size=128, head="reg"),
+    "D_hm128_light": dict(input_size=128, head="heatmap", decoder_channels=(32, 32)),
+    # Variantes plus larges (backbone plus "épais") : plus précises mais plus lourdes
+    "E_hm128_a050":  dict(input_size=128, head="heatmap", decoder_channels=(64, 32), alpha=0.5),
+    "F_hm128_a075":  dict(input_size=128, head="heatmap", decoder_channels=(64, 32), alpha=0.75),
+}
+
 
 def _up_block(x, channels, name):
     # UpSampling "nearest" : opérateur simple, bien supporté par X-CUBE-AI en int8.
