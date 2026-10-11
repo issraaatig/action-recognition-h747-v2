@@ -65,3 +65,12 @@ Tremblement frame→frame (médiane, unités normalisées) : annotations neck 0.
 ## Validation C ↔ Python (sur PC, gcc MinGW)
 `firmware/host_tests/test_blocks.c` : post-traitement (joints, scores), normalisation 20 frames (avec les 2 cas limites),
 buffer circulaire → fenêtre chronologique : **erreur max = 0** pour les 4 blocs. Test contrôlé : un lissage faussé est bien détecté (erreur 7.0).
+
+## TinyPose E_hm128_a050 (α=0.5) — comparaison avec A
+| Mesure | A (α=0.35) | E (α=0.5) |
+|---|---|---|
+| PCK@0.2 test float | 0.761 | **0.790** |
+| PCK@0.2 test **int8** | 0.755 (−0.6) | 0.763 (**−2.8**) |
+| X-CUBE-AI poids / RAM / MACC | 114 Ko / 288 Ko / 21,2 M | 196 Ko / 288 Ko / 31,9 M |
+| TCN (30) sur ses squelettes, clip | 0.504 | 0.504 |
+| TCN + root motion, clip | 0.474 | 0.526 |

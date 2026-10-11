@@ -55,3 +55,8 @@
   (2) cross-fitting (squelettes d'entraînement extraits par un TinyPose qui ne les a jamais vus) ;
   (3) conditions de démo plus faciles que JHMDB (une personne, face caméra, bonne lumière) → mesurer sur la carte.
 - Modèle temporel retenu pour l'instant : **TCN 30 features** (spec CLAUDE.md, meilleur score mesuré, différences dans le bruit ±5 pts).
+
+## D10 — On garde TinyPose A pour le déploiement (pour l'instant)
+- E est meilleur en float (+3 points PCK) mais perd 2,8 points à la quantification int8 (A : 0,6) → en int8 : 0.763 vs 0.755.
+- Le gain d'action est dans le bruit (0.50–0.53 au clip) pour +50 % de calcul.
+- Piste pour récupérer l'avantage de E : quantization-aware training (QAT) au lieu de la quantification post-entraînement.
