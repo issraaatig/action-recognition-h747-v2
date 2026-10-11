@@ -29,3 +29,4 @@ Thumbs.db
 .vscode/
 pc/models/**/*.out
 !pc/models/temporal/**/model.h5
+firmware/host_tests/*.exe

@@ -40,3 +40,28 @@ Variabilité observée d'un entraînement à l'autre : ± 5 points (petit jeu de
 | **TCN + root motion** | 32 | 6 406 | **0.861** | **0.838** | int8 : 15,5 Ko / 8,8 Ko ; float : 25 Ko / 3,9 Ko |
 | GRU | 30 | 6 342 | 0.759 | 0.759 | — |
 | GRU + root motion | 32 | 6 534 | 0.822 | 0.823 | float (.h5) : 25,5 Ko / 2,9 Ko |
+
+## Modèle temporel — squelettes produits par TinyPose A_hm128 int8 (conditions réelles)
+| Modèle | Précision fenêtre | Précision clip |
+|---|---|---|
+| TCN (30) | 0.542 | **0.504** |
+| TCN + root motion | 0.507 | 0.474 |
+| GRU | 0.495 | 0.455 |
+| GRU + root motion | 0.507 | 0.489 |
+| TCN + bruit d'entraînement (×3) | 0.540 | 0.492 |
+| TCN + lissage 0.7 | 0.523 | 0.492 |
+
+### Diagnostic de la chute 0.80 → 0.50 (voir decisions.md D9)
+| TCN entraîné sur → testé sur | Clip | 5 classes cibles | other |
+|---|---|---|---|
+| parfaits → parfaits | 0.797 | 0.759 | 0.808 |
+| parfaits → TinyPose | 0.511 | 0.362 | 0.553 |
+| TinyPose → parfaits | 0.677 | 0.379 | 0.760 |
+| TinyPose → TinyPose | 0.504 | 0.431 | 0.524 |
+
+Qualité des squelettes extraits : PCK@0.2 = 0.908 sur les clips train (vus par TinyPose), 0.737 sur les clips test.
+Tremblement frame→frame (médiane, unités normalisées) : annotations neck 0.001 / poignet 0.029 ; TinyPose neck 0.056 / poignet 0.084.
+
+## Validation C ↔ Python (sur PC, gcc MinGW)
+`firmware/host_tests/test_blocks.c` : post-traitement (joints, scores), normalisation 20 frames (avec les 2 cas limites),
+buffer circulaire → fenêtre chronologique : **erreur max = 0** pour les 4 blocs. Test contrôlé : un lissage faussé est bien détecté (erreur 7.0).

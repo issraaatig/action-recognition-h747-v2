@@ -10,6 +10,11 @@ Pour chaque frame (joints en pixels de l'image TinyPose 128×128, scores = pic d
   4. features = ((joint - belly) / échelle) aplatis : [x0, y0, x1, y1, ..., x14, y14] -> 30 floats ;
   5. (option root_motion) + déplacement du belly depuis la frame précédente / échelle -> 2 floats de plus.
      Sans cette option, un saut (tout le corps monte) est invisible : seule la forme du corps reste.
+
+Option smooth (0 = désactivé) : entre 1. et 2., lissage exponentiel des joints
+     j_lissé = smooth × j_lissé_précédent + (1 − smooth) × j
+  Raison : TinyPose « tremble » d'environ 1 px d'une frame à l'autre (pas de la heatmap), soit ~0.06 en unités
+  normalisées — autant que le vrai mouvement d'un poignet entre deux frames. L'échelle est lissée de la même façon.
 """
 import numpy as np
 
@@ -23,8 +28,9 @@ LR_PAIRS = [(3, 4), (5, 6), (7, 8), (9, 10), (11, 12), (13, 14)]
 class SkeletonNormalizer:
     """Version « avec état » : traite les frames une par une, exactement comme la carte."""
 
-    def __init__(self, root_motion=False):
+    def __init__(self, root_motion=False, smooth=0.0):
         self.root_motion = root_motion
+        self.smooth = smooth
         self.reset()
 
     @property
@@ -41,10 +47,14 @@ class SkeletonNormalizer:
         if self.prev_joints is not None:
             low = np.asarray(scores) < SCORE_THR
             j[low] = self.prev_joints[low]
+            # lissage temporel (sur les positions déjà corrigées)
+            j = self.smooth * self.prev_joints + (1 - self.smooth) * j
         # 3. échelle
         scale = float(np.hypot(*(j[NECK] - j[BELLY])))
         if scale < MIN_SCALE:
             scale = self.prev_scale
+        elif self.prev_joints is not None:
+            scale = self.smooth * self.prev_scale + (1 - self.smooth) * scale
         # 2. + 4. recentrage et mise à l'échelle
         feats = ((j - j[BELLY]) / scale).reshape(-1)
         # 5. mouvement global du bassin
@@ -55,9 +65,9 @@ class SkeletonNormalizer:
         return feats.astype(np.float32)
 
 
-def normalize_sequence(joints, scores, root_motion=False):
+def normalize_sequence(joints, scores, root_motion=False, smooth=0.0):
     """(T, 15, 2), (T, 15) -> (T, 30 ou 32), en appliquant le normaliseur frame par frame."""
-    norm = SkeletonNormalizer(root_motion)
+    norm = SkeletonNormalizer(root_motion, smooth)
     return np.stack([norm(j, s) for j, s in zip(joints, scores)])
 
 

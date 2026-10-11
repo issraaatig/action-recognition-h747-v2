@@ -46,3 +46,12 @@
 - TCN : `.tflite` int8 (entrée/sortie float, calcul int8) et float32. Les deux passent dans X-CUBE-AI 9.0.
   Le TCN fait 25 Ko en float : la version float est un choix raisonnable (pas de perte de quantification).
 - GRU : X-CUBE-AI 9.0 refuse le GRU déroulé en `.tflite` (`Invalid size_splits [32 32 -1]`) → export `.h5` Keras.
+
+## D9 — Le goulot d'étranglement est la qualité de TinyPose, pas le TCN
+- Sur squelettes TinyPose, toutes les variantes temporelles plafonnent à ~0.50 (clip) contre 0.80 sur annotations.
+- Un TCN entraîné sur annotations parfaites tombe aussi à 0.51 sur squelettes TinyPose → le modèle temporel n'est pas en cause.
+- Testé sans gain : bruit d'entraînement artificiel, lissage temporel (0.5 / 0.7), root motion.
+- Pistes, par ordre de gain attendu : (1) TinyPose plus précis (variante E α=0.5, plus d'epochs, distillation MoveNet) ;
+  (2) cross-fitting (squelettes d'entraînement extraits par un TinyPose qui ne les a jamais vus) ;
+  (3) conditions de démo plus faciles que JHMDB (une personne, face caméra, bonne lumière) → mesurer sur la carte.
+- Modèle temporel retenu pour l'instant : **TCN 30 features** (spec CLAUDE.md, meilleur score mesuré, différences dans le bruit ±5 pts).

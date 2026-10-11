@@ -31,14 +31,19 @@ OUT = ROOT / "firmware" / "test_vectors"
 
 
 def c_array(ctype, name, arr, per_line=16):
-    flat = np.asarray(arr).reshape(-1)
-    if ctype == "float":
-        items = [f"{v:.8e}f" for v in flat]
-    else:
-        items = [str(int(v)) for v in flat]
-    lines = [", ".join(items[i:i + per_line]) for i in range(0, len(items), per_line)]
-    dims = "".join(f"[{d}]" for d in np.asarray(arr).shape)
-    return f"static const {ctype} {name}{dims} = {{\n  " + ",\n  ".join(lines) + "\n};\n"
+    """Tableau numpy -> déclaration C avec accolades imbriquées (une paire par dimension)."""
+    arr = np.asarray(arr)
+    fmt = (lambda v: f"{v:.8e}f") if ctype == "float" else (lambda v: str(int(v)))
+
+    def nest(a, indent):
+        if a.ndim == 1:
+            items = [fmt(v) for v in a]
+            rows = [", ".join(items[i:i + per_line]) for i in range(0, len(items), per_line)]
+            return "{" + (",\n" + indent + " ").join(rows) + "}"
+        return "{\n" + ",\n".join(indent + "  " + nest(x, indent + "  ") for x in a) + "\n" + indent + "}"
+
+    dims = "".join(f"[{d}]" for d in arr.shape)
+    return f"static const {ctype} {name}{dims} = " + nest(arr, "") + ";\n"
 
 
 def header(name, body, doc):
@@ -90,7 +95,7 @@ def main():
     S[5, 11] = 0.05            # frame 5 : poignet droit peu sûr -> doit reprendre la valeur de la frame 4
     J[8, 0] = J[8, 1]          # frame 8 : neck == belly -> échelle nulle -> doit reprendre l'échelle précédente
     S[8, 0] = S[8, 1] = 1.0
-    norm = SkeletonNormalizer(root_motion)
+    norm = SkeletonNormalizer(root_motion, cfg.get("smooth", 0.0))  # mêmes réglages que le modèle choisi
     feats = np.stack([norm(j, s) for j, s in zip(J, S)])
     body = (f"#define TV_NORM_N_FRAMES {len(J)}\n#define TV_NORM_N_FEATURES {feats.shape[1]}\n\n"
             + c_array("float", "tv_norm_joints", J) + c_array("float", "tv_norm_scores", S)

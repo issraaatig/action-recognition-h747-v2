@@ -49,16 +49,34 @@ def windows_from_clip(feats, step, stride=2):
     return np.stack(out)
 
 
-def make_dataset(clips, root_motion, steps, augment, rng):
+def corrupt_skeleton(J, S, rng, p_err=0.15, p_low=0.08, jitter=2.0):
+    """Ajoute aux squelettes d'entraînement le bruit que TinyPose produit sur des images jamais vues :
+    TinyPose a vu les clips d'entraînement (PCK 0.91) mais pas ceux du test (PCK 0.74).
+      - p_err  : joint "raté" -> déplacé loin (écart-type 30 % de la taille de la personne) ;
+      - p_low  : score qui tombe sous le seuil -> la normalisation reprendra la valeur précédente ;
+      - jitter : tremblement de quelques pixels sur tous les joints."""
+    J, S = J.copy(), S.copy()
+    size = max(float(np.ptp(J.reshape(-1, 2), 0).max()), 10.0)
+    err = rng.random(S.shape) < p_err
+    J[err] += rng.normal(0, 0.3 * size, (err.sum(), 2))
+    J += rng.normal(0, jitter, J.shape)
+    S[rng.random(S.shape) < p_low] = 0.0
+    return J.astype(np.float32), S
+
+
+def make_dataset(clips, root_motion, steps, augment, rng, n_noisy=0, smooth=0.0):
     X, y, clip_id = [], [], []
     for k, (J, S, m) in enumerate(clips):
         for step in steps:
             # la normalisation est refaite pour chaque pas : sur la carte, la "frame précédente"
             # est la précédente TRAITÉE, donc dépend du pas
             sub = slice(0, None, step)
-            f = normalize_sequence(J[sub], S[sub], root_motion)
+            f = normalize_sequence(J[sub], S[sub], root_motion, smooth)
             w = windows_from_clip(f, 1)  # f est déjà sous-échantillonné
             variants = [w]
+            for _ in range(n_noisy):  # copies bruitées (bruit appliqué AVANT la normalisation, comme en vrai)
+                Jn, Sn = corrupt_skeleton(J[sub], S[sub], rng)
+                variants.append(windows_from_clip(normalize_sequence(Jn, Sn, root_motion, smooth), 1))
             if augment:
                 variants.append(mirror_features(w))                                   # miroir G/D
                 variants.append(w * rng.uniform(0.9, 1.1) + rng.normal(0, 0.03, w.shape))  # échelle + bruit
@@ -112,6 +130,8 @@ def main():
     ap.add_argument("--root-motion", action="store_true")
     ap.add_argument("--variant", default="A_hm128", help="variante TinyPose ayant produit les squelettes")
     ap.add_argument("--epochs", type=int, default=150)
+    ap.add_argument("--noisy", type=int, default=0, help="nb de copies bruitées par clip (bruit type TinyPose)")
+    ap.add_argument("--smooth", type=float, default=0.0, help="lissage exponentiel des joints (0 = aucun, 0.6 = fort)")
     args = ap.parse_args()
     rng = np.random.default_rng(0)
     tf.random.set_seed(0)
@@ -124,9 +144,9 @@ def main():
     n_val = len(train) // 10
     val, train = train[:n_val], train[n_val:]
 
-    Xtr, ytr, _ = make_dataset(train, args.root_motion, [1, 2, 3], True, rng)
-    Xva, yva, _ = make_dataset(val, args.root_motion, [TEST_STEP], False, rng)
-    Xte, yte, cte = make_dataset(test, args.root_motion, [TEST_STEP], False, rng)
+    Xtr, ytr, _ = make_dataset(train, args.root_motion, [1, 2, 3], True, rng, n_noisy=args.noisy, smooth=args.smooth)
+    Xva, yva, _ = make_dataset(val, args.root_motion, [TEST_STEP], False, rng, smooth=args.smooth)
+    Xte, yte, cte = make_dataset(test, args.root_motion, [TEST_STEP], False, rng, smooth=args.smooth)
     print(f"fenêtres : train {len(Xtr)}, val {len(Xva)}, test {len(Xte)} ; features {Xtr.shape[-1]}")
 
     # "other" regroupe 16 classes -> beaucoup plus d'exemples : on rééquilibre par des poids de classe
@@ -137,7 +157,7 @@ def main():
     model = build_model(args.model, Xtr.shape[-1])
     model.summary(print_fn=lambda s: None)
     model.compile(keras.optimizers.Adam(1e-3), "sparse_categorical_crossentropy", metrics=["accuracy"])
-    name = f"{args.variant}_{args.model}{'_rm' if args.root_motion else ''}"
+    name = f"{args.variant}_{args.model}{'_rm' if args.root_motion else ''}{'_noisy' if args.noisy else ''}{f'_s{args.smooth:g}' if args.smooth else ''}"
     out_dir = Path(__file__).parent / "models" / "temporal" / name
     out_dir.mkdir(parents=True, exist_ok=True)
     model.fit(Xtr, ytr, validation_data=(Xva, yva), epochs=args.epochs, batch_size=256, verbose=0,
@@ -163,7 +183,7 @@ def main():
     for c, row in zip(CLASSES, conf):
         print(f"{c:>7s} " + " ".join(f"{v:6d}" for v in row))
     (out_dir / "results.json").write_text(json.dumps({
-        "model": name, "params": int(model.count_params()), "n_features": int(Xtr.shape[-1]),
+        "model": name, "params": int(model.count_params()), "n_features": int(Xtr.shape[-1]), "smooth": args.smooth,
         "test_window_acc": win_acc, "test_clip_acc": clip_acc, "confusion": conf.tolist(), "classes": CLASSES,
     }, indent=1))
 
