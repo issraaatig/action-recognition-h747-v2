@@ -30,3 +30,18 @@ tar -xzf JHMDB.tar.gz -C pc/data JHMDB/Frames JHMDB/JHMDB-GT.pkl
 |---|---|---|
 | 1. Indexer + vérifier les données | `python pc/01_prepare_jhmdb.py` | `pc/data/jhmdb_index.json`, `pc/data/check_joints/` |
 | 2. Variantes TinyPose + benchmark | `python pc/02_build_tinypose.py` puis `stedgeai analyze` | `pc/models/bench/` |
+| 3. Entraîner TinyPose | `python pc/03_train_tinypose.py --variant A_hm128 --epochs 30` | `pc/models/tinypose/A_hm128/best.keras` |
+| 4. Quantifier int8 | `python pc/06_export_tflite.py --variant A_hm128` | `tinypose_int8.tflite` (PCK float vs int8) |
+| 5a. Extraire les squelettes | `python pc/04_extract_skeletons.py --variant A_hm128` (`--gt` : annotations) | `pc/data/skeletons_*.npz` |
+| 5b. TCN / GRU | `python pc/05_train_temporal.py --model tcn --variant A_hm128` | `pc/models/temporal/<nom>/` |
+| 6. Vecteurs de test | `python pc/07_make_test_vectors.py --pose A_hm128 --temporal A_hm128_tcn` | `firmware/test_vectors/*.h` |
+
+## Blocs C validés sur PC
+
+```bash
+gcc -O2 -Wall -Ifirmware/app -Ifirmware/test_vectors firmware/host_tests/test_blocks.c firmware/app/*.c -lm -o firmware/host_tests/test_blocks.exe
+./firmware/host_tests/test_blocks.exe
+```
+
+## Déploiement sur la carte
+Voir [docs/deploiement_x-cube-ai.md](docs/deploiement_x-cube-ai.md) : les deux réseaux dans X-CUBE-AI, appel des API, ordre de validation.
