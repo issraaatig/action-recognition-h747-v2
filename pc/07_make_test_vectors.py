@@ -10,7 +10,7 @@ Fichiers générés (firmware/test_vectors/, à inclure dans le projet CM7) :
                     pour tester les deux chemins « valeur précédente » du code C)
   tv_temporal.h  : fenêtre 16×F float -> 6 probabilités attendues
 
-Usage : python pc/07_make_test_vectors.py --pose A_hm128 --temporal A_hm128_tcn_rm
+Usage : python pc/07_make_test_vectors.py --pose A_hm128 --temporal A_hm128_tcn
 """
 import argparse
 import json
@@ -65,7 +65,7 @@ def main():
     sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser()
     ap.add_argument("--pose", default="A_hm128")
-    ap.add_argument("--temporal", default="A_hm128_tcn_rm")
+    ap.add_argument("--temporal", default="A_hm128_tcn")  # modèle retenu (decisions.md D9)
     args = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
     models = Path(__file__).parent / "models"
