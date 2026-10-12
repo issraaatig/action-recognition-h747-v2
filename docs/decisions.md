@@ -60,3 +60,10 @@
 - E est meilleur en float (+3 points PCK) mais perd 2,8 points à la quantification int8 (A : 0,6) → en int8 : 0.763 vs 0.755.
 - Le gain d'action est dans le bruit (0.50–0.53 au clip) pour +50 % de calcul.
 - Piste pour récupérer l'avantage de E : quantization-aware training (QAT) au lieu de la quantification post-entraînement.
+
+## D11 — Les deux modèles passent par X-CUBE-AI
+- TinyPose : `pc/models/tinypose/A_hm128/tinypose_int8.tflite` (int8) → réseau X-CUBE-AI `tinypose`.
+- TCN : `pc/models/temporal/A_hm128_tcn/model_float32.tflite` (float32) → réseau X-CUBE-AI `tcn`.
+  Analyze (X-CUBE-AI 9.0, stm32h7) : entrée f32 1×16×30, sortie f32 1×6, 24,3 Ko de poids, 1,9 Ko d'activations, 72 480 MACC.
+  Float plutôt qu'int8 : 25 Ko seulement, aucune perte de quantification, et entrée/sortie directement en float.
+- Le TCN écrit à la main en C (CLAUDE.md §8) devient un exercice optionnel pour plus tard ; `tv_temporal.h` sert aux deux versions.

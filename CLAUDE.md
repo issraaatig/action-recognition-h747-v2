@@ -133,7 +133,7 @@ buffer temporel + modèle 2 en DTCM.
 - ~6 000 paramètres. GRU(32) → Dense(6) comme comparaison.
 - **Entraîné sur les squelettes produits par TinyPose** (pas sur les annotations parfaites), pour avoir le même bruit qu'en déploiement.
 - Fenêtres de 16 frames échantillonnées **au FPS réel de la carte** (mesurer d'abord ; ex. 8 FPS → pas de ~4 frames à 30 FPS).
-- Le TCN sera **écrit à la main en C** (exercice pédagogique), validé contre la sortie Python.
+- Le TCN est **généré par X-CUBE-AI** à partir de `model_float32.tflite` (décision D11). Version écrite à la main en C : exercice optionnel, plus tard, validé contre la même sortie Python.
 
 ---
 
