@@ -67,3 +67,11 @@
   Analyze (X-CUBE-AI 9.0, stm32h7) : entrée f32 1×16×30, sortie f32 1×6, 24,3 Ko de poids, 1,9 Ko d'activations, 72 480 MACC.
   Float plutôt qu'int8 : 25 Ko seulement, aucune perte de quantification, et entrée/sortie directement en float.
 - Le TCN écrit à la main en C (CLAUDE.md §8) devient un exercice optionnel pour plus tard ; `tv_temporal.h` sert aux deux versions.
+
+## D12 — MPU : configuration par défaut de ST activée (phase 0)
+- Question CubeMX à la création du projet : « préconfigurer la MPU pour la lecture spéculative du Cortex-M7 » → **Yes**.
+- Effet : une région de fond interdit l'accès aux zones de mémoire **externe** non configurées, pour que les lectures
+  spéculatives du M7 ne partent pas vers une adresse où rien ne répond (blocage du bus / faute imprévisible).
+  Les mémoires internes (flash, DTCM, ITCM, AXI SRAM, SRAM1-4) restent accessibles.
+- ⚠️ Conséquence phase 3 : avant d'utiliser la **SDRAM externe** (frames caméra), il faudra **ajouter une région MPU**
+  qui l'autorise (et choisir ses attributs de cache). Sinon : MemManage / HardFault au premier accès.

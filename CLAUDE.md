@@ -190,7 +190,7 @@ action-recognition-h747/
 | 9 | Optimisation : placement mémoire, ROI tracking, dual-core M7/M4 | DWT->CYCCNT, toggle GPIO + analyseur logique, HSEM, cache inter-cœurs |
 | 10 | Plan B / baseline : Motion History Image + petit CNN | — |
 
-**Phase actuelle : 1** (ordre choisi : partie PC/modèles d'abord — phases 1, 2, 4, 7 — puis le firmware ; voir docs/decisions.md D3).
+**Phase actuelle : 0** (partie PC terminée — phases 1, 2, 4, 7 — ; on commence le firmware : bring-up de la carte, voir docs/decisions.md D3).
 
 ---
 
