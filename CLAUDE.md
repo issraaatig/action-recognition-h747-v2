@@ -199,4 +199,4 @@ action-recognition-h747/
 - OS : Windows 11 Pro
 - Python : 3.11 (`py -3.11`), dans un venv `pc/.venv`. GPU : aucun (entraînement CPU ou Google Colab). STM32Cube FW_H7 V1.13.0 installé.
 - STM32CubeIDE version : 2.1.1  /  X-CUBE-AI version : 9.0.0
-- Port série de la carte : COM4 (115200 8N1)
+- Port série de la carte : COM3 (115200 8N1) — vérifié dans le Gestionnaire de périphériques (« STLink Virtual COM Port »)
