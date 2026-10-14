@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -70,7 +70,13 @@ static void MX_USART1_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+/* printf() calls __io_putchar() for every character (see syscalls.c):
+   send it on USART1, which is wired to the ST-LINK virtual COM port. */
+int __io_putchar(int ch)
+{
+  HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
+  return ch;
+}
 /* USER CODE END 0 */
 
 /**
@@ -142,7 +148,9 @@ Error_Handler();
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-
+  printf("\r\n=== Hello STM32H747 (Cortex-M7) ===\r\n");
+  printf("SYSCLK = %lu Hz, HCLK = %lu Hz\r\n",
+         HAL_RCC_GetSysClockFreq(), HAL_RCC_GetHCLKFreq());
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -152,6 +160,9 @@ Error_Handler();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    HAL_GPIO_TogglePin(GPIOI, GPIO_PIN_12);      /* green LED LD1: on <-> off */
+    printf("tick = %lu ms\r\n", HAL_GetTick());  /* time since reset */
+    HAL_Delay(500);
   }
   /* USER CODE END 3 */
 }
