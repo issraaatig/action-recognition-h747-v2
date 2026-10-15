@@ -59,7 +59,7 @@
 #include "tcn.h"
 #include "tcn_data.h"
 
- /* USER CODE BEGIN includes */
+/* USER CODE BEGIN includes */
  #include <math.h>
  #include "pose_postproc.h"
  #include "skeleton_norm.h"
@@ -67,7 +67,8 @@
  #include "test_vectors/tv_tinypose.h"
  #include "test_vectors/tv_normalize.h"
  #include "test_vectors/tv_temporal.h"
- /* USER CODE END includes */
+/* USER CODE END includes */
+
 /* IO buffers ----------------------------------------------------------------*/
 
 #if !defined(AI_TINYPOSE_INPUTS_IN_ACTIVATIONS)
@@ -320,7 +321,7 @@ int post_process(ai_i8* data[])
 
 void MX_X_CUBE_AI_Init(void)
 {
-	/* USER CODE BEGIN 5 */
+    /* USER CODE BEGIN 5 */
 	  printf("\r\n[AI] initialisation\r\n");
 
 	  /* 1. TinyPose : la fonction du squelette le cree dans pool0 (225 Ko) */
@@ -338,7 +339,7 @@ void MX_X_CUBE_AI_Init(void)
 	    printf("[AI] tcn OK : entree %u o, sortie %u o, activations %u o\r\n",
 	           (unsigned)AI_TCN_IN_1_SIZE_BYTES, (unsigned)AI_TCN_OUT_1_SIZE_BYTES,
 	           (unsigned)AI_TCN_DATA_ACTIVATIONS_SIZE);
-	    /* USER CODE END 5 */
+    /* USER CODE END 5 */
 }
 
 void MX_X_CUBE_AI_Process(void)
