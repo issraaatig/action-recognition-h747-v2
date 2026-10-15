@@ -23,6 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
+#include "stm32h747i_discovery_sdram.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -80,6 +81,25 @@ int __io_putchar(int ch)
 {
   HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
   return ch;
+}
+/* SDRAM test: write a different value in each 32-bit word of the 32 MB, then read it back */
+static void sdram_test(void)
+{
+  if (BSP_SDRAM_Init(0) != BSP_ERROR_NONE) {
+    printf("[SDRAM] init ERREUR\r\n");
+    return;
+  }
+  printf("[SDRAM] init OK, ecriture a partir de 0x%08lX...\r\n", (unsigned long)SDRAM_DEVICE_ADDR);
+
+  volatile uint32_t *mem = (volatile uint32_t *)SDRAM_DEVICE_ADDR;
+  const uint32_t n = SDRAM_DEVICE_SIZE / 4;            /* 32 MB = 8 M words of 32 bits */
+
+  for (uint32_t i = 0; i < n; i++) mem[i] = i ^ 0xA5A5A5A5u;          /* write */
+
+  uint32_t errors = 0;
+  for (uint32_t i = 0; i < n; i++) if (mem[i] != (i ^ 0xA5A5A5A5u)) errors++;   /* read */
+
+  printf("[SDRAM] %lu mots testes, %lu erreurs\r\n", (unsigned long)n, (unsigned long)errors);
 }
 /* USER CODE END 0 */
 
@@ -164,6 +184,7 @@ Error_Handler();
   printf("\r\n=== Hello STM32H747 (Cortex-M7) ===\r\n");
   printf("SYSCLK = %lu Hz, HCLK = %lu Hz\r\n",
          HAL_RCC_GetSysClockFreq(), HAL_RCC_GetHCLKFreq());
+  sdram_test();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -404,8 +425,20 @@ void MPU_Config(void)
   MPU_InitStruct.SubRegionDisable = 0x87;
   MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL0;
   MPU_InitStruct.AccessPermission = MPU_REGION_NO_ACCESS;
-  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
-  MPU_InitStruct.IsShareable = MPU_ACCESS_SHAREABLE;
+  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
+  MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
+  MPU_InitStruct.IsCacheable = MPU_ACCESS_CACHEABLE;
+  MPU_InitStruct.IsBufferable = MPU_ACCESS_BUFFERABLE;
+
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /** Initializes and configures the Region and the memory to be protected
+  */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER1;
+  MPU_InitStruct.BaseAddress = 0xD0000000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_32MB;
+  MPU_InitStruct.SubRegionDisable = 0x0;
+  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
   MPU_InitStruct.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
   MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
 

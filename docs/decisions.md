@@ -90,3 +90,8 @@
 - Calcul par image mesuré sur la carte : TinyPose 111,9 ms + TCN 1,1 ms ≈ 113 ms → ~8,8 images/s au maximum (avant caméra/écran).
 - JHMDB est à ~30 images/s : à ~8 images/s sur la carte, une image traitée ≈ 4 images JHMDB. Le TCN a été entraîné avec des pas {1, 2, 3}.
 - À faire quand le FPS réel avec caméra sera mesuré : réentraîner le TCN avec des pas autour de ce FPS (ex. {3, 4, 5}) — D7.
+
+## D15 — SDRAM externe : région MPU 1 non cacheable (pour l'instant)
+- Région 1 : 0xD0000000, 32 Mo, accès complet, **non cacheable**, non bufferable (l'exemple ST utilise cacheable write-through).
+- Avantage : aucun problème de cohérence cache/DMA quand la caméra (DCMI+DMA) écrira dans la SDRAM.
+- Coût : accès CPU plus lents (test 32 Mo écriture + relecture ≈ 0,9 s). À reconsidérer en phase 9 (cacheable + maintenance de cache).

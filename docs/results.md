@@ -85,3 +85,4 @@ buffer circulaire → fenêtre chronologique : **erreur max = 0** pour les 4 blo
 | TCN float (code X-CUBE-AI) | `tv_temporal.h` → 6 probabilités | **erreur max 0** (jump .091, clap .016, wave .043, sit .464, stand .326, other .057) | **1,1 ms** |
 
 Bilan : tout le pipeline de calcul est bit-exact avec Python. Calcul par image ≈ 113 ms → ~8,8 images/s (hors caméra et affichage).
+| SDRAM externe 32 Mo (BSP IS42S32800J, MPU région 1 non cacheable) | motif `i ^ 0xA5A5A5A5` sur 8 388 608 mots | **0 erreur** | ~0,9 s (écriture + relecture) |
