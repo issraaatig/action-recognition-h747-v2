@@ -24,6 +24,8 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include "stm32h747i_discovery_sdram.h"
+#include "stm32h747i_discovery_lcd.h"
+#include "stm32_lcd.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -100,6 +102,26 @@ static void sdram_test(void)
   for (uint32_t i = 0; i < n; i++) if (mem[i] != (i ^ 0xA5A5A5A5u)) errors++;   /* read */
 
   printf("[SDRAM] %lu mots testes, %lu erreurs\r\n", (unsigned long)n, (unsigned long)errors);
+}
+
+/* LCD test: blue screen with a white title */
+static void lcd_test(void)
+{
+  if (BSP_LCD_Init(0, LCD_ORIENTATION_LANDSCAPE) != BSP_ERROR_NONE) {
+    printf("[LCD] init ERREUR\r\n");
+    return;
+  }
+  uint32_t w, h;
+  BSP_LCD_GetXSize(0, &w);
+  BSP_LCD_GetYSize(0, &h);
+  printf("[LCD] init OK : %lu x %lu pixels\r\n", (unsigned long)w, (unsigned long)h);
+
+  UTIL_LCD_SetFuncDriver(&LCD_Driver);          /* stm32_lcd draws through the BSP */
+  UTIL_LCD_Clear(UTIL_LCD_COLOR_BLUE);
+  UTIL_LCD_SetBackColor(UTIL_LCD_COLOR_BLUE);
+  UTIL_LCD_SetTextColor(UTIL_LCD_COLOR_WHITE);
+  UTIL_LCD_SetFont(&Font24);
+  UTIL_LCD_DisplayStringAt(0, h / 2 - 12, (uint8_t *)"Action recognition H747", CENTER_MODE);
 }
 /* USER CODE END 0 */
 
@@ -185,6 +207,7 @@ Error_Handler();
   printf("SYSCLK = %lu Hz, HCLK = %lu Hz\r\n",
          HAL_RCC_GetSysClockFreq(), HAL_RCC_GetHCLKFreq());
   sdram_test();
+  lcd_test();
   /* USER CODE END 2 */
 
   /* Infinite loop */

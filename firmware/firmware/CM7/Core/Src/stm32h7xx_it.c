@@ -22,6 +22,7 @@
 #include "stm32h7xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "stm32h747i_discovery_lcd.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -199,5 +200,9 @@ void SysTick_Handler(void)
 /******************************************************************************/
 
 /* USER CODE BEGIN 1 */
-
+/* Interrupts enabled by BSP_LCD_Init(): forward them to the HAL,
+   otherwise the CPU would end up in Default_Handler (infinite loop). */
+void LTDC_IRQHandler(void)  { HAL_LTDC_IRQHandler(&hlcd_ltdc); }
+void DSI_IRQHandler(void)   { HAL_DSI_IRQHandler(&hlcd_dsi); }
+void DMA2D_IRQHandler(void) { HAL_DMA2D_IRQHandler(&hlcd_dma2d); }
 /* USER CODE END 1 */
