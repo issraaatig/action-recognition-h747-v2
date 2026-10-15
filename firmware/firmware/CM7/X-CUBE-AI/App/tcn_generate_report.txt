@@ -1,6 +1,6 @@
 ST Edge AI Core v2.2.0-20266 2adc00962
-Created date          : 2026-10-16 00:03:40
-Parameters            : generate --target stm32h7 --name tcn -m D:/action-recognition-h747/pc/models/temporal/A_hm128_tcn/model_float32.tflite --compression none --verbosity 1 --workspace C:/Users/LENOVO/AppData/Local/Temp/mxAI_workspace4203820994713007014848010932838497 --output C:/Users/LENOVO/.stm32cubemx/network_output
+Created date          : 2026-10-16 00:18:41
+Parameters            : generate --target stm32h7 --name tcn -m D:/action-recognition-h747/pc/models/temporal/A_hm128_tcn/model_float32.tflite --compression none --verbosity 1 --workspace C:/Users/LENOVO/AppData/Local/Temp/mxAI_workspace4212964609859009857511750610370882 --output C:/Users/LENOVO/.stm32cubemx/network_output
 
 Exec/report summary (generate)
 -------------------------------------------------------------------------------------------------------------
@@ -11,7 +11,7 @@ compression        :   none
 options            :   allocate-inputs, allocate-outputs                                                     
 optimization       :   balanced                                                                              
 target/series      :   stm32h7                                                                               
-workspace dir      :   C:\Users\LENOVO\AppData\Local\Temp\mxAI_workspace4203820994713007014848010932838497   
+workspace dir      :   C:\Users\LENOVO\AppData\Local\Temp\mxAI_workspace4212964609859009857511750610370882   
 output dir         :   C:\Users\LENOVO\.stm32cubemx\network_output                                           
 model_fmt          :   float                                                                                 
 model_name         :   model_float32                                                                         

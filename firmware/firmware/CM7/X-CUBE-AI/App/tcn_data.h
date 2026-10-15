@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    tcn_data.h
   * @author  AST Embedded Analytics Research Platform
-  * @date    2026-10-16T00:03:36+0100
+  * @date    2026-10-16T00:18:38+0100
   * @brief   AI Tool Automatic Code Generator for Embedded NN computing
   ******************************************************************************
   * Copyright (c) 2026 STMicroelectronics.
