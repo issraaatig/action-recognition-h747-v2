@@ -75,3 +75,13 @@
   Les mémoires internes (flash, DTCM, ITCM, AXI SRAM, SRAM1-4) restent accessibles.
 - ⚠️ Conséquence phase 3 : avant d'utiliser la **SDRAM externe** (frames caméra), il faudra **ajouter une région MPU**
   qui l'autorise (et choisir ses attributs de cache). Sinon : MemManage / HardFault au premier accès.
+
+## D13 — Passage à X-CUBE-AI 10.2.1 (ST Edge AI Core 2.2.0)
+- CubeMX 6.17 charge le plugin X-CUBE-AI 9.0.0 mais n'affiche pas le panneau des réseaux (« no parameters to be configured »).
+- X-CUBE-AI 10.x sépare le plugin CubeMX (20 Mo) du moteur `stedgeai` (zip `stedgeai-windows-10.2.0.zip`, ~3 Go décompressé).
+- L'installation automatique du moteur par CubeMX a échoué (bug de chemin local « unknown protocol: c ») et le disque C: était
+  plein → packs déplacés vers `D:\STM32Cube\STM32Cube\Repository`, zip décompressé dans `.../X-CUBE-AI/10.2.1/`.
+- Vérification avec ST Edge AI Core 2.2.0 : TinyPose int8 = 114,4 Ko poids, 224,5 Ko activations, 21,2 M MACC ;
+  TCN float = 24,3 Ko poids, 4,0 Ko activations, 72 480 MACC → identiques à la 9.0 (le TCN compte maintenant ses E/S).
+- ⚠️ En 10.x, entrées et sorties sont placées **dans le buffer d'activations** par défaut : il faut **copier** l'image dans
+  `in[0].data` (et lire `out[0].data`) au lieu de remplacer ces pointeurs.
