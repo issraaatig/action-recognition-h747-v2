@@ -79,3 +79,9 @@ buffer circulaire → fenêtre chronologique : **erreur max = 0** pour les 4 blo
 | Bloc | Vecteur de test | Résultat | Latence |
 |---|---|---|---|
 | TinyPose int8 (code X-CUBE-AI) | `tv_tinypose.h` → heatmaps | **erreur max 0**, 0 / 15 360 valeurs différentes (bit-exact) | **112,0 ms** (DWT->CYCCNT) |
+| Décodage heatmaps → joints (`pose_postproc.c`) | `tv_tinypose.h` → joints, scores | **erreur max 0** | négligeable |
+| Normalisation 20 frames (2 cas limites) | `tv_normalize.h` | **erreur max 0** | négligeable |
+| Buffer circulaire → fenêtre chronologique | `tv_temporal.h` (entrée) | **erreur max 0** | négligeable |
+| TCN float (code X-CUBE-AI) | `tv_temporal.h` → 6 probabilités | **erreur max 0** (jump .091, clap .016, wave .043, sit .464, stand .326, other .057) | **1,1 ms** |
+
+Bilan : tout le pipeline de calcul est bit-exact avec Python. Calcul par image ≈ 113 ms → ~8,8 images/s (hors caméra et affichage).

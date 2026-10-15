@@ -60,9 +60,13 @@
 #include "tcn_data.h"
 
  /* USER CODE BEGIN includes */
+ #include <math.h>
  #include "pose_postproc.h"
+ #include "skeleton_norm.h"
+ #include "temporal_buffer.h"
  #include "test_vectors/tv_tinypose.h"
-
+ #include "test_vectors/tv_normalize.h"
+ #include "test_vectors/tv_temporal.h"
  /* USER CODE END includes */
 /* IO buffers ----------------------------------------------------------------*/
 
@@ -216,6 +220,77 @@ static void test_tinypose(void)
          us, max_err, n_diff, AI_TINYPOSE_OUT_1_SIZE);
 }
 
+/* Largest absolute difference between two float arrays */
+static float max_abs_diff(const float *a, const float *b, int n)
+{
+  float m = 0.0f;
+  for (int i = 0; i < n; i++) {
+    float d = fabsf(a[i] - b[i]);
+    if (d > m) m = d;
+  }
+  return m;
+}
+
+/* newlib-nano printf cannot print floats: show small errors as integers of 1e-6 */
+#define MICRO(x) ((unsigned long)((x) * 1e6f))
+
+/* Tests 2, 3, 4: decoding, normalisation + buffer, TCN */
+static void test_chain(void)
+{
+  /* Test 2: decode the heatmaps that TinyPose just produced ON THE BOARD */
+  pose_t pose;
+  pose_decode_heatmaps((const int8_t *)ai_output[0].data, 32, 128,
+                       TV_POSE_OUT_SCALE, TV_POSE_OUT_ZERO_POINT, &pose);
+  float joints[15][2];
+  for (int j = 0; j < 15; j++) { joints[j][0] = pose.x[j]; joints[j][1] = pose.y[j]; }
+  printf("[TEST] decodage : joints %lu e-6 px, scores %lu e-6\r\n",
+         MICRO(max_abs_diff(&joints[0][0], &tv_pose_expected_joints[0][0], 30)),
+         MICRO(max_abs_diff(pose.score, tv_pose_expected_scores, 15)));
+
+  /* Test 3: normalisation of 20 frames + circular buffer */
+  skel_norm_t norm;
+  tbuf_t buf;
+  float feats[TV_NORM_N_FEATURES];
+  float err_norm = 0.0f;
+  skel_norm_init(&norm, TV_NORM_N_FEATURES == 32, 0.0f);
+  tbuf_init(&buf, TV_NORM_N_FEATURES);
+  for (int t = 0; t < TV_NORM_N_FRAMES; t++) {
+    pose_t p;
+    for (int j = 0; j < 15; j++) {
+      p.x[j] = tv_norm_joints[t][j][0];
+      p.y[j] = tv_norm_joints[t][j][1];
+      p.score[j] = tv_norm_scores[t][j];
+    }
+    skel_norm_process(&norm, &p, feats);
+    float e = max_abs_diff(feats, tv_norm_expected[t], TV_NORM_N_FEATURES);
+    if (e > err_norm) err_norm = e;
+    tbuf_push(&buf, feats);
+  }
+  static float window[TBUF_LEN * TV_NORM_N_FEATURES];
+  tbuf_get_chronological(&buf, window);
+  printf("[TEST] normalisation : %lu e-6, buffer : %lu e-6\r\n", MICRO(err_norm),
+         MICRO(max_abs_diff(window, &tv_temp_input[0][0], TBUF_LEN * TV_NORM_N_FEATURES)));
+
+  /* Test 4: TCN on the test window */
+  ai_buffer *tin  = ai_tcn_inputs_get(tcn, NULL);
+  ai_buffer *tout = ai_tcn_outputs_get(tcn, NULL);
+  memcpy(tin[0].data, tv_temp_input, AI_TCN_IN_1_SIZE_BYTES);   /* input lives in tcn_pool */
+  cycles_start();
+  if (ai_tcn_run(tcn, tin, tout) != 1) {
+    ai_log_err(ai_tcn_get_error(tcn), "ai_tcn_run");
+    return;
+  }
+  uint32_t us = cycles_to_us(DWT->CYCCNT);
+  const float *probs = (const float *)tout[0].data;
+  printf("[TEST] tcn : %lu us, erreur max probas %lu e-6\r\n", us,
+         MICRO(max_abs_diff(probs, tv_temp_expected_probs, 6)));
+  printf("[TEST] probas x1000 : jump %lu clap %lu wave %lu sit %lu stand %lu other %lu\r\n",
+         (unsigned long)(probs[0] * 1000), (unsigned long)(probs[1] * 1000),
+         (unsigned long)(probs[2] * 1000), (unsigned long)(probs[3] * 1000),
+         (unsigned long)(probs[4] * 1000), (unsigned long)(probs[5] * 1000));
+}
+
+
 int acquire_and_process_data(ai_i8* data[])
 {
   /* fill the inputs of the c-model
@@ -273,6 +348,7 @@ void MX_X_CUBE_AI_Process(void)
   if (!done) {
     done = 1;
     test_tinypose();
+    test_chain();
   }
     /* USER CODE END 6 */
 }

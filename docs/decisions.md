@@ -85,3 +85,8 @@
   TCN float = 24,3 Ko poids, 4,0 Ko activations, 72 480 MACC → identiques à la 9.0 (le TCN compte maintenant ses E/S).
 - ⚠️ En 10.x, entrées et sorties sont placées **dans le buffer d'activations** par défaut : il faut **copier** l'image dans
   `in[0].data` (et lire `out[0].data`) au lieu de remplacer ces pointeurs.
+
+## D14 — FPS mesuré et pas temporel du TCN (à reprendre)
+- Calcul par image mesuré sur la carte : TinyPose 111,9 ms + TCN 1,1 ms ≈ 113 ms → ~8,8 images/s au maximum (avant caméra/écran).
+- JHMDB est à ~30 images/s : à ~8 images/s sur la carte, une image traitée ≈ 4 images JHMDB. Le TCN a été entraîné avec des pas {1, 2, 3}.
+- À faire quand le FPS réel avec caméra sera mesuré : réentraîner le TCN avec des pas autour de ce FPS (ex. {3, 4, 5}) — D7.
