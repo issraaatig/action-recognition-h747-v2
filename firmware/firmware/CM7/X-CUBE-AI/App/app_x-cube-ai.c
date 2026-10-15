@@ -59,9 +59,11 @@
 #include "tcn.h"
 #include "tcn_data.h"
 
-/* USER CODE BEGIN includes */
-/* USER CODE END includes */
+ /* USER CODE BEGIN includes */
+ #include "pose_postproc.h"
+ #include "test_vectors/tv_tinypose.h"
 
+ /* USER CODE END includes */
 /* IO buffers ----------------------------------------------------------------*/
 
 #if !defined(AI_TINYPOSE_INPUTS_IN_ACTIVATIONS)
@@ -172,6 +174,48 @@ static int ai_run(void)
 }
 
 /* USER CODE BEGIN 2 */
+/* Second network: the TCN (the template only handles tinypose) */
+static ai_handle tcn = AI_HANDLE_NULL;
+AI_ALIGNED(32) static uint8_t tcn_pool[AI_TCN_DATA_ACTIVATIONS_SIZE];
+
+/* Cortex-M7 cycle counter (DWT): +1 per CPU cycle, i.e. 400 per microsecond at 400 MHz */
+static void cycles_start(void)
+{
+  CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;   /* enable the DWT unit           */
+  DWT->LAR = 0xC5ACCE55;                            /* unlock it (needed on the M7) */
+  DWT->CYCCNT = 0;                                  /* reset the counter            */
+  DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;              /* start counting               */
+}
+
+static uint32_t cycles_to_us(uint32_t cycles)
+{
+  return cycles / (SystemCoreClock / 1000000U);     /* 400 cycles = 1 us */
+}
+
+/* Test 1: TinyPose on the test image, compared with the Python result */
+static void test_tinypose(void)
+{
+  /* 1. copy the test image INTO the network input buffer (it lives in the activations) */
+  memcpy(ai_input[0].data, tv_pose_input, AI_TINYPOSE_IN_1_SIZE_BYTES);
+
+  /* 2. run TinyPose and measure the time */
+  cycles_start();
+  if (ai_run() != 0) return;                        /* ai_run() already printed the error */
+  uint32_t us = cycles_to_us(DWT->CYCCNT);
+
+  /* 3. compare the 15360 int8 values with the expected heatmaps */
+  const int8_t *out = (const int8_t *)ai_output[0].data;
+  const int8_t *exp = &tv_pose_expected_heatmaps[0][0][0];
+  int max_err = 0, n_diff = 0;
+  for (int i = 0; i < AI_TINYPOSE_OUT_1_SIZE; i++) {
+    int d = abs(out[i] - exp[i]);
+    if (d > max_err) max_err = d;
+    if (d != 0) n_diff++;
+  }
+  printf("[TEST] tinypose : %lu us, erreur max = %d, valeurs differentes = %d / %d\r\n",
+         us, max_err, n_diff, AI_TINYPOSE_OUT_1_SIZE);
+}
+
 int acquire_and_process_data(ai_i8* data[])
 {
   /* fill the inputs of the c-model
@@ -201,37 +245,34 @@ int post_process(ai_i8* data[])
 
 void MX_X_CUBE_AI_Init(void)
 {
-    /* USER CODE BEGIN 5 */
-  printf("\r\nTEMPLATE - initialization\r\n");
+	/* USER CODE BEGIN 5 */
+	  printf("\r\n[AI] initialisation\r\n");
 
-  ai_boostrap(data_activations0);
-    /* USER CODE END 5 */
+	  /* 1. TinyPose : la fonction du squelette le cree dans pool0 (225 Ko) */
+	  if (ai_boostrap(data_activations0) == 0)
+	    printf("[AI] tinypose OK : entree %u o, sortie %u o, activations %u o\r\n",
+	           (unsigned)AI_TINYPOSE_IN_1_SIZE_BYTES, (unsigned)AI_TINYPOSE_OUT_1_SIZE_BYTES,
+	           (unsigned)AI_TINYPOSE_DATA_ACTIVATIONS_SIZE);
+
+	  /* 2. TCN : on le cree nous-memes, dans son propre buffer tcn_pool */
+	  ai_handle tcn_act[] = { tcn_pool };
+	  ai_error err = ai_tcn_create_and_init(&tcn, tcn_act, NULL);
+	  if (err.type != AI_ERROR_NONE)
+	    ai_log_err(err, "ai_tcn_create_and_init");
+	  else
+	    printf("[AI] tcn OK : entree %u o, sortie %u o, activations %u o\r\n",
+	           (unsigned)AI_TCN_IN_1_SIZE_BYTES, (unsigned)AI_TCN_OUT_1_SIZE_BYTES,
+	           (unsigned)AI_TCN_DATA_ACTIVATIONS_SIZE);
+	    /* USER CODE END 5 */
 }
 
 void MX_X_CUBE_AI_Process(void)
 {
     /* USER CODE BEGIN 6 */
-  int res = -1;
-
-  printf("TEMPLATE - run - main loop\r\n");
-
-  if (tinypose) {
-
-    do {
-      /* 1 - acquire and pre-process input data */
-      res = acquire_and_process_data(data_ins);
-      /* 2 - process the data - call inference engine */
-      if (res == 0)
-        res = ai_run();
-      /* 3- post-process the predictions */
-      if (res == 0)
-        res = post_process(data_outs);
-    } while (res==0);
-  }
-
-  if (res) {
-    ai_error err = {AI_ERROR_INVALID_STATE, AI_ERROR_CODE_NETWORK};
-    ai_log_err(err, "Process has FAILED");
+  static int done = 0;          /* run the tests only once, then let main() continue */
+  if (!done) {
+    done = 1;
+    test_tinypose();
   }
     /* USER CODE END 6 */
 }

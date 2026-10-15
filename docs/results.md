@@ -5,7 +5,7 @@ Modèles NON entraînés, int8, `stedgeai analyze --target stm32h7` (X-CUBE-AI 9
 
 | Variante | Entrée | Sortie | Poids (Ko) | Activations (Ko) | RAM totale (Ko) | MACC (M) | Latence (ms) |
 |---|---|---|---|---|---|---|---|
-| A_hm128 (α=0.35) | 128×128 | 32×32×15 | 114 | 225 | 288 | 21.2 | à mesurer |
+| A_hm128 (α=0.35) | 128×128 | 32×32×15 | 114 | 225 | 288 | 21.2 | **112.0** (carte, cache I+D actifs) |
 | B_hm96 (α=0.35) | 96×96 | 24×24×15 | 114 | 127 | 162 | 11.9 | à mesurer |
 | C_reg128 (α=0.35) | 128×128 | 30 | 102 | 225 | 273 | 14.4 | à mesurer |
 | D_hm128_light (α=0.35) | 128×128 | 32×32×15 | 107 | 225 | 288 | 18.3 | à mesurer |
@@ -74,3 +74,8 @@ buffer circulaire → fenêtre chronologique : **erreur max = 0** pour les 4 blo
 | X-CUBE-AI poids / RAM / MACC | 114 Ko / 288 Ko / 21,2 M | 196 Ko / 288 Ko / 31,9 M |
 | TCN (30) sur ses squelettes, clip | 0.504 | 0.504 |
 | TCN + root motion, clip | 0.474 | 0.526 |
+
+## Validation sur la carte (STM32H747I-DISCO, M7 @ 400 MHz, I-Cache + D-Cache, X-CUBE-AI 10.2.1)
+| Bloc | Vecteur de test | Résultat | Latence |
+|---|---|---|---|
+| TinyPose int8 (code X-CUBE-AI) | `tv_tinypose.h` → heatmaps | **erreur max 0**, 0 / 15 360 valeurs différentes (bit-exact) | **112,0 ms** (DWT->CYCCNT) |
