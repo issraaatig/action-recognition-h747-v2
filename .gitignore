@@ -34,3 +34,5 @@ firmware/host_tests/*.exe
 # Workspace CubeIDE (réglages locaux, jamais versionnés)
 .metadata/
 firmware/**/.metadata/
+*.launch
+firmware/firmware/.ai/

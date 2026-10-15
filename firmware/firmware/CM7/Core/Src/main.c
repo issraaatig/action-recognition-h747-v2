@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "app_x-cube-ai.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -98,6 +99,14 @@ int main(void)
   /* MPU Configuration--------------------------------------------------------*/
   MPU_Config();
 
+  /* Enable the CPU Cache */
+
+  /* Enable I-Cache---------------------------------------------------------*/
+  SCB_EnableICache();
+
+  /* Enable D-Cache---------------------------------------------------------*/
+  SCB_EnableDCache();
+
 /* USER CODE BEGIN Boot_Mode_Sequence_1 */
 #if defined(DUAL_CORE_BOOT_SYNC_SEQUENCE)
   /* Wait until CPU2 boots and enters in stop mode or timeout*/
@@ -147,6 +156,7 @@ Error_Handler();
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART1_UART_Init();
+  MX_X_CUBE_AI_Init();
   /* USER CODE BEGIN 2 */
   printf("\r\n=== Hello STM32H747 (Cortex-M7) ===\r\n");
   printf("SYSCLK = %lu Hz, HCLK = %lu Hz\r\n",
@@ -159,6 +169,7 @@ Error_Handler();
   {
     /* USER CODE END WHILE */
 
+  MX_X_CUBE_AI_Process();
     /* USER CODE BEGIN 3 */
     HAL_GPIO_TogglePin(GPIOI, GPIO_PIN_12);      /* green LED LD1: on <-> off */
     printf("tick = %lu ms\r\n", HAL_GetTick());  /* time since reset */
