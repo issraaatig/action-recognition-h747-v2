@@ -34,12 +34,12 @@ tar -xzf JHMDB.tar.gz -C pc/data JHMDB/Frames JHMDB/JHMDB-GT.pkl
 | 4. Quantifier int8 | `python pc/06_export_tflite.py --variant A_hm128` | `tinypose_int8.tflite` (PCK float vs int8) |
 | 5a. Extraire les squelettes | `python pc/04_extract_skeletons.py --variant A_hm128` (`--gt` : annotations) | `pc/data/skeletons_*.npz` |
 | 5b. TCN / GRU | `python pc/05_train_temporal.py --model tcn --variant A_hm128` | `pc/models/temporal/<nom>/` |
-| 6. Vecteurs de test | `python pc/07_make_test_vectors.py --pose A_hm128 --temporal A_hm128_tcn` | `firmware/test_vectors/*.h` |
+| 6. Vecteurs de test | `python pc/07_make_test_vectors.py --pose A_hm128 --temporal A_hm128_tcn` | `firmware/firmware/CM7/Core/Inc/test_vectors/*.h` |
 
 ## Blocs C validés sur PC
 
 ```bash
-gcc -O2 -Wall -Ifirmware/app -Ifirmware/test_vectors firmware/host_tests/test_blocks.c firmware/app/*.c -lm -o firmware/host_tests/test_blocks.exe
+gcc -O2 -Wall -Ifirmware/firmware/CM7/Core/Inc -Ifirmware/firmware/CM7/Core/Inc/test_vectors firmware/host_tests/test_blocks.c firmware/firmware/CM7/Core/Src/pose_postproc.c firmware/firmware/CM7/Core/Src/skeleton_norm.c firmware/firmware/CM7/Core/Src/temporal_buffer.c -lm -o firmware/host_tests/test_blocks.exe
 ./firmware/host_tests/test_blocks.exe
 ```
 

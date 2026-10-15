@@ -140,7 +140,7 @@ buffer temporel + modèle 2 en DTCM.
 ## 9. Règle d'or de validation PC ↔ carte
 
 Pour chaque bloc (prétraitement, TinyPose, post-traitement, normalisation, TCN) :
-1. Python génère des **vecteurs de test** (entrée + sortie attendue) exportés en `.h` dans `firmware/Core/Inc/test_vectors/`.
+1. Python génère des **vecteurs de test** (entrée + sortie attendue) exportés en `.h` dans `firmware/firmware/CM7/Core/Inc/test_vectors/`.
 2. La carte exécute le bloc sur l'entrée et compare à la sortie attendue ; affiche l'erreur max par UART.
 3. On ne passe au bloc suivant que si l'erreur est acceptable.
 

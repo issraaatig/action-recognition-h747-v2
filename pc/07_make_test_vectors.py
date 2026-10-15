@@ -3,7 +3,7 @@
 Pour chaque bloc, on exporte une ENTRÉE et la SORTIE ATTENDUE calculée en Python, en tableaux C.
 Sur la carte, on exécute le bloc sur l'entrée, on compare à la sortie attendue et on affiche l'erreur max par UART.
 
-Fichiers générés (firmware/test_vectors/, à inclure dans le projet CM7) :
+Fichiers générés (firmware/firmware/CM7/Core/Inc/test_vectors/, dans le projet CubeIDE du M7) :
   tv_tinypose.h  : image 128×128×3 uint8 (HWC, RGB) -> heatmaps int8 attendues + joints/scores décodés
   tv_normalize.h : 20 frames de joints/scores -> features normalisées attendues
                    (inclut volontairement un joint à score faible et une frame à échelle nulle,
@@ -27,7 +27,7 @@ from common.heatmap import decode_heatmaps  # noqa: E402
 from common.normalize import SkeletonNormalizer  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "firmware" / "test_vectors"
+OUT = ROOT / "firmware" / "firmware" / "CM7" / "Core" / "Inc" / "test_vectors"  # dans le projet CubeIDE du M7
 
 
 def c_array(ctype, name, arr, per_line=16):

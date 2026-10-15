@@ -2,9 +2,7 @@
  * Le même code (sauf printf -> UART) servira de test sur la carte.
  *
  * Compilation (Git Bash, depuis la racine du projet) :
- *   gcc -O2 -Wall -Ifirmware/app -Ifirmware/test_vectors firmware/host_tests/test_blocks.c \
- *       firmware/app/pose_postproc.c firmware/app/skeleton_norm.c firmware/app/temporal_buffer.c \
- *       -lm -o firmware/host_tests/test_blocks.exe
+ *   gcc -O2 -Wall -Ifirmware/firmware/CM7/Core/Inc \n *       -Ifirmware/firmware/CM7/Core/Inc/test_vectors \n *       firmware/host_tests/test_blocks.c firmware/firmware/CM7/Core/Src/pose_postproc.c firmware/firmware/CM7/Core/Src/skeleton_norm.c firmware/firmware/CM7/Core/Src/temporal_buffer.c -lm -o firmware/host_tests/test_blocks.exe
  *   ./firmware/host_tests/test_blocks.exe
  */
 #include <math.h>
