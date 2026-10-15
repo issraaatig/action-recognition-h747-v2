@@ -190,7 +190,7 @@ action-recognition-h747/
 | 9 | Optimisation : placement mémoire, ROI tracking, dual-core M7/M4 | DWT->CYCCNT, toggle GPIO + analyseur logique, HSEM, cache inter-cœurs |
 | 10 | Plan B / baseline : Motion History Image + petit CNN | — |
 
-**Phase actuelle : 5/8 validées sur vecteurs de test** (TinyPose 112 ms bit-exact, TCN 1,1 ms bit-exact, blocs C bit-exact) ; prochaine : phase 3 (caméra + écran), voir docs/results.md.
+**Phase actuelle : 3** — SDRAM 32 Mo OK, écran OK (texte affiché) ; prochaine étape : caméra (DCMI + DMA → SDRAM). Phases 5/8 validées sur vecteurs de test (voir docs/results.md).
 
 ---
 
