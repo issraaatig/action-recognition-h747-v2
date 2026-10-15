@@ -26,6 +26,7 @@
 #include "stm32h747i_discovery_sdram.h"
 #include "stm32h747i_discovery_lcd.h"
 #include "stm32_lcd.h"
+#include "camera_app.h"            /* camera module (see camera_app.c) */
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -121,8 +122,9 @@ static void lcd_test(void)
   UTIL_LCD_SetBackColor(UTIL_LCD_COLOR_BLUE);
   UTIL_LCD_SetTextColor(UTIL_LCD_COLOR_WHITE);
   UTIL_LCD_SetFont(&Font24);
-  UTIL_LCD_DisplayStringAt(0, h / 2 - 12, (uint8_t *)"Action recognition H747", CENTER_MODE);
+  UTIL_LCD_DisplayStringAt(0, 20, (uint8_t *)"Action recognition H747", CENTER_MODE);
 }
+
 /* USER CODE END 0 */
 
 /**
@@ -208,6 +210,7 @@ Error_Handler();
          HAL_RCC_GetSysClockFreq(), HAL_RCC_GetHCLKFreq());
   sdram_test();
   lcd_test();
+  int cam_ok = (camera_init() == 0);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -218,6 +221,7 @@ Error_Handler();
 
   MX_X_CUBE_AI_Process();
     /* USER CODE BEGIN 3 */
+    if (cam_ok) camera_capture_and_show();       /* one new camera image every loop (~2 per second) */
     HAL_GPIO_TogglePin(GPIOI, GPIO_PIN_12);      /* green LED LD1: on <-> off */
     printf("tick = %lu ms\r\n", HAL_GetTick());  /* time since reset */
     HAL_Delay(500);

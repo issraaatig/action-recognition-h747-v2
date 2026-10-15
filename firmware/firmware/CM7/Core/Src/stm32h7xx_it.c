@@ -23,6 +23,10 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "stm32h747i_discovery_lcd.h"
+/* Camera BSP interrupt functions, declared here instead of including the BSP camera header:
+   that header conflicts with the MX_DCMI_Init(void) prototype that CubeMX puts in main.h. */
+void BSP_CAMERA_IRQHandler(uint32_t Instance);
+void BSP_CAMERA_DMA_IRQHandler(uint32_t Instance);
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -205,4 +209,8 @@ void SysTick_Handler(void)
 void LTDC_IRQHandler(void)  { HAL_LTDC_IRQHandler(&hlcd_ltdc); }
 void DSI_IRQHandler(void)   { HAL_DSI_IRQHandler(&hlcd_dsi); }
 void DMA2D_IRQHandler(void) { HAL_DMA2D_IRQHandler(&hlcd_dma2d); }
+
+/* Interrupts enabled by BSP_CAMERA_Init(): DCMI (frame/line events) and its DMA (DMA2 Stream 3) */
+void DCMI_IRQHandler(void)         { BSP_CAMERA_IRQHandler(0); }
+void DMA2_Stream3_IRQHandler(void) { BSP_CAMERA_DMA_IRQHandler(0); }
 /* USER CODE END 1 */
