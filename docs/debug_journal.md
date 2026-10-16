@@ -53,3 +53,37 @@ Une entrée par bug résolu. Format :
 - **Leçon** : IPSR (exception n°) + CFSR + MMFAR/BFAR donnent la cause d'une faute en 3 lectures. Le Fault Analyzer ne montre rien si le
   processeur est encore arrêté au breakpoint de `main` : il faut d'abord Resume puis Suspend. Quand une faute **ne change pas** après une
   correction, relire le **code généré** (ici un champ hérité d'une région précédente), pas seulement l'écran de configuration.
+
+## 2026-10-16 [Phase 3.3] Caméra : « pas d'image en 500 ms » — 3 bugs en chaîne
+### Bug 1 : la fonction `MX_DCMI_Init` de CubeMX remplace en silence celle du BSP
+- **Symptôme** : `[CAM] init OK` (le capteur répond en I2C), puis `pas d'image en 500 ms` en boucle ; écran bleu seul.
+- **Hypothèses** : 1. DCMI/DMA mal configurés ; 2. IRQ de fin d'image non reçue (handler manquant) ; 3. capteur muet ; 4. cache.
+- **Méthode** (SWD hotplug, `-r32`) : DCMI `CR = 0` (jamais activé), DMA2 Stream3 `NDTR = 0x9600` (rien transféré),
+  **`PAR = 0x00000028`** au lieu de `0x48020028`. 0x28 = décalage du registre DR → calculé avec `Instance = NULL`.
+  Puis `.map` / `nm` : `MX_DCMI_Init` défini dans **main.o**, la version du BSP écartée.
+- **Cause réelle** : la case « Generate Code » de MX_DCMI_Init s'était recochée dans CubeMX. CubeMX a généré `void MX_DCMI_Init(void)`
+  (non weak) dans main.c, qui **remplace au linkage** la fonction `__weak MX_DCMI_Init(DCMI_HandleTypeDef*)` du BSP
+  → c'est `hdcmi` (CubeMX) qui est initialisé, pas `hcamera_dcmi` (BSP). Aucun avertissement : le linker ne compare pas les paramètres.
+- **Correction** : CubeMX → Advanced Settings → MX_DCMI_Init (M7) : Generate Code décoché → `.map` : `MX_DCMI_Init` vient de
+  `stm32h747i_discovery_camera.o`. Une 1re image arrive (91 ms), mais presque noire.
+- **Leçon** : une adresse « absurde mais petite » (0x28, 0x10…) dans un pointeur = base NULL + décalage d'un registre.
+  Une fonction `__weak` peut être remplacée sans message : vérifier dans le `.map` **quel fichier** fournit le symbole.
+
+### Bug 2 : une seule image en mode snapshot
+- **Symptôme** : 1re image OK, puis `pas d'image en 500 ms`.
+- **Méthode** : DCMI `IER = 0` (toutes les interruptions coupées). Lecture de `stm32h7xx_hal_dcmi.c` : en mode snapshot, l'IRQ de fin
+  d'image coupe LINE/VSYNC/ERR/OVR/FRAME, et seul `HAL_DCMI_Init` les réactive ; `HAL_DCMI_Start_DMA` ne le fait pas.
+- **Correction** : mode **continu**, démarré une seule fois dans `camera_init()`. La boucle attend `frame_ready`, puis le remet à 0.
+  (Piège rencontré : `frame_ready = 0` placé **dans** le `while (!frame_ready)` → jamais remis à 0 → « capturee en 0 ms » en boucle :
+  un temps trop beau pour être vrai est un indice.)
+
+### Bug 3 : overrun du FIFO DCMI (bus SDRAM saturé)
+- **Symptôme** : en continu, 1 image puis plus rien. DMA `EN = 0` arrêté après 67 mots.
+- **Méthode** : adresse de `hcamera_dcmi` dans le `.map`, lecture de la structure en RAM : `State = 4` (ERROR),
+  **`ErrorCode = 0x41`** = OVR (0x01) + DMA (0x40). Ajout d'un compteur dans `BSP_CAMERA_ErrorCallback` affiché par UART.
+- **Cause réelle** : pendant que le DMA caméra écrit en SDRAM, la copie CPU (lecture + écriture pixel par pixel, non cacheable)
+  et le LTDC (~90 Mo/s) utilisent le même bus FMC → le DMA attend trop, le FIFO du DCMI déborde, la HAL arrête le DMA définitivement.
+- **Correction** : `BSP_CAMERA_Suspend(0)` avant la copie, `BSP_CAMERA_Resume(0)` après. Résultat : `erreurs DCMI : 0`,
+  image en direct correcte, ~42 ms d'attente par image, boucle ≈ 175 ms.
+- **Leçon** : sur H7, la SDRAM est une ressource partagée (CPU, LTDC, DMA, DMA2D). Un overrun = un problème de **débit/priorité**,
+  pas de configuration. Amélioration prévue : copie par DMA2D (rafales, conversion RGB565→ARGB8888 matérielle).

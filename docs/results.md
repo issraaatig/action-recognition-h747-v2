@@ -87,3 +87,4 @@ buffer circulaire → fenêtre chronologique : **erreur max = 0** pour les 4 blo
 Bilan : tout le pipeline de calcul est bit-exact avec Python. Calcul par image ≈ 113 ms → ~8,8 images/s (hors caméra et affichage).
 | SDRAM externe 32 Mo (BSP IS42S32800J, MPU région 1 non cacheable) | motif `i ^ 0xA5A5A5A5` sur 8 388 608 mots | **0 erreur** | ~0,9 s (écriture + relecture) |
 | Écran DSI 800×480 (BSP LCD, détection auto NT35510/OTM8009A, image en SDRAM 0xD0000000) | fond bleu + texte (UTIL_LCD) | **OK** : `[LCD] init OK : 800 x 480`, texte visible | — |
+| Caméra B-CAMS-OMV (DCMI + DMA2 Stream3 → SDRAM 0xD0177000, 320×240 RGB565, mode continu) | image en direct au centre de l’écran | **OK** : image correcte, `erreurs DCMI : 0` | ~42 ms d’attente par image, boucle ≈ 175 ms (copie CPU + delay 100 ms) |

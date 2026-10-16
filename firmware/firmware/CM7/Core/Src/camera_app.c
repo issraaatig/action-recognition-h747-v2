@@ -17,6 +17,14 @@ void BSP_CAMERA_FrameEventCallback(uint32_t Instance)
   frame_ready = 1;
 }
 
+/* Called by the BSP (from the DCMI interrupt) on an error: overrun (FIFO full) or DMA error.
+   After an error the HAL stops the DMA: no more frames until the camera is restarted. */
+static volatile uint32_t cam_errors = 0;
+void BSP_CAMERA_ErrorCallback(uint32_t Instance)
+{
+  cam_errors++;
+}
+
 int camera_init(void)
 {
   if (BSP_CAMERA_Init(0, CAMERA_R320x240, CAMERA_PF_RGB565) != BSP_ERROR_NONE) {
@@ -24,22 +32,27 @@ int camera_init(void)
     return -1;
   }
   printf("[CAM] init OK : %dx%d RGB565 -> SDRAM 0x%08lX\r\n", CAM_W, CAM_H, (unsigned long)CAMERA_FRAME_BUFFER);
+  BSP_CAMERA_Start(0, (uint8_t *)CAMERA_FRAME_BUFFER, CAMERA_MODE_CONTINUOUS);
   return 0;
 }
 
-/* Capture ONE frame (snapshot) by DMA, then copy it to the centre of the LCD image */
+/* Wait for the next frame written by the DMA (camera runs continuously, started in camera_init),
+   then copy it to the centre of the LCD image */
 void camera_capture_and_show(void)
 {
-  frame_ready = 0;
   uint32_t t0 = HAL_GetTick();
-  BSP_CAMERA_Start(0, (uint8_t *)CAMERA_FRAME_BUFFER, CAMERA_MODE_SNAPSHOT);
   while (!frame_ready) {                   /* the DMA fills the SDRAM while we wait */
     if (HAL_GetTick() - t0 > 500) {
-      printf("[CAM] pas d'image en 500 ms\r\n");
+      printf("[CAM] pas d'image en 500 ms (erreurs DCMI : %lu)\r\n", (unsigned long)cam_errors);
       return;
     }
   }
+  frame_ready = 0;                         /* frame consumed: the next one will set it again */
   uint32_t t_capture = HAL_GetTick() - t0;
+
+  /* Pause the capture during the copy: CPU copy + LCD refresh + camera DMA all use the SDRAM bus,
+     and the DCMI FIFO overflows (overrun) if its DMA has to wait too long. */
+  BSP_CAMERA_Suspend(0);
 
   /* RGB565 (16 bits: 5 red, 6 green, 5 blue) -> ARGB8888 (8 bits per channel) for the LCD */
   const uint16_t *cam = (const uint16_t *)CAMERA_FRAME_BUFFER;
@@ -52,5 +65,7 @@ void camera_capture_and_show(void)
       lcd[(y0 + y) * 800 + (x0 + x)] = 0xFF000000u | (r << 19) | (g << 10) | (b << 3);
     }
   }
-  printf("[CAM] image capturee en %lu ms, affichee\r\n", (unsigned long)t_capture);
+  BSP_CAMERA_Resume(0);
+  printf("[CAM] image capturee en %lu ms, affichee (erreurs DCMI : %lu)\r\n",
+         (unsigned long)t_capture, (unsigned long)cam_errors);
 }
