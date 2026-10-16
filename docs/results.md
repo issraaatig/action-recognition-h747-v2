@@ -88,3 +88,19 @@ Bilan : tout le pipeline de calcul est bit-exact avec Python. Calcul par image �
 | SDRAM externe 32 Mo (BSP IS42S32800J, MPU région 1 non cacheable) | motif `i ^ 0xA5A5A5A5` sur 8 388 608 mots | **0 erreur** | ~0,9 s (écriture + relecture) |
 | Écran DSI 800×480 (BSP LCD, détection auto NT35510/OTM8009A, image en SDRAM 0xD0000000) | fond bleu + texte (UTIL_LCD) | **OK** : `[LCD] init OK : 800 x 480`, texte visible | — |
 | Caméra B-CAMS-OMV (DCMI + DMA2 Stream3 → SDRAM 0xD0177000, 320×240 RGB565, mode continu) | image en direct au centre de l’écran | **OK** : image correcte, `erreurs DCMI : 0` | ~42 ms d’attente par image, boucle ≈ 175 ms (copie CPU + delay 100 ms) |
+
+## Prétraitement caméra (Phase 3.4)
+Caméra 320×240 RGB565 → carré central 240×240 → RGB888 → bilinéaire entier 128×128 (`pc/common/preprocess.py` = `preprocess.c`).
+| Mesure | Valeur |
+|---|---|
+| Écart avec `cv2.resize(INTER_LINEAR)` | ≤ 1 niveau (arrondi) |
+| C sur PC (gcc) vs Python | **0 / 49 152 octets différents** |
+| PCK@0.2 TinyPose int8, recadrage **centre fixe** (comme la carte), 1 500 frames test | **0.608** (personnes > 120 px : 0.660) |
+| Rappel : recadrage **sur la personne** (marge 1,5, comme à l'entraînement) | 0.755 |
+
+→ Sans recadrage sur la personne, on perd ~15 points : la personne doit remplir l'image (se placer à la bonne distance),
+puis amélioration prévue en Phase 9 (ROI tracking : recadrer autour du squelette de la frame précédente).
+| C sur la carte vs Python | **0 / 49 152 octets différents**, **16,9 ms** (M7 400 MHz, -O0) |
+| TinyPose sur cette image : carte vs **TFLite** | 3 755 / 15 360 valeurs différentes (max 27), joint 12 décalé de 70 px (score 0,25) |
+| TinyPose sur cette image : carte vs **code C X-CUBE-AI exécuté sur PC** (`stedgeai validate --mode host`) | **0 différence** → la carte exécute fidèlement le code généré |
+| X-CUBE-AI vs TFLite sur 100 images test (centre fixe) | 43 images avec ≥ 1 valeur différente (11,7 % des valeurs), **PCK identique : 0,621 vs 0,622** |

@@ -87,3 +87,22 @@ Une entrée par bug résolu. Format :
   image en direct correcte, ~42 ms d'attente par image, boucle ≈ 175 ms.
 - **Leçon** : sur H7, la SDRAM est une ressource partagée (CPU, LTDC, DMA, DMA2D). Un overrun = un problème de **débit/priorité**,
   pas de configuration. Amélioration prévue : copie par DMA2D (rafales, conversion RGB565→ARGB8888 matérielle).
+
+## 2026-10-16 [Phase 3.4] Test prétraitement + TinyPose : joints décalés de 70 px alors que l'entrée est exacte
+- **Symptôme** : `[TEST] pretraitement : ... octets differents = 0 / 49152` (bloc exact) mais
+  `[TEST] pretraitement + tinypose : joints 70000000 e-6 px, scores 64620 e-6`. Le test TinyPose n°1 (autre image) reste bit-exact.
+- **Hypothèses** : 1. le TCN (exécuté entre les deux tests) corrompt la mémoire de TinyPose ; 2. l'entrée est modifiée entre la
+  vérification et `ai_run()` (DMA, interruption) ; 3. le code C X-CUBE-AI n'est pas bit-exact avec TFLite sur toutes les images.
+- **Méthode** :
+  - `nm -S` : `pool0` (TinyPose, 0x24008020, 229 888 o) et `tcn_pool` (0x24040240) ne se chevauchent pas → hypothèse 1 peu probable ;
+  - adresses réelles des buffers lues via les pointeurs `ai_input` / `ai_output` (structure `ai_buffer`, champ `data` à +4) ;
+  - **dump de la sortie de la carte** par SWD : `STM32_Programmer_CLI ... -u 0x24008138 15360 board_out.bin` ;
+  - même image passée à `stedgeai validate --mode host` (le code C généré, compilé et exécuté sur PC) :
+    **carte = code C sur PC (0 différence)**, code C ≠ TFLite (3 755 valeurs). Sur l'image du test n°1 : 0 différence partout.
+- **Cause réelle** : pas un bug de la carte. Le noyau int8 d'X-CUBE-AI ne donne pas exactement les mêmes entiers que TFLite sur
+  certaines images (43 % des images, PCK pourtant identique 0,621 / 0,622). Le test n°1 était exact « par chance ». Le joint à 70 px
+  a un score de 0,25 : heatmap plate, un petit écart change l'argmax (et la normalisation le remplacera, score < 0,3).
+- **Correction** : aucune dans le firmware. La référence bit-exacte de la carte est la sortie de `stedgeai validate --mode host`,
+  pas TFLite. Écart accepté (précision identique).
+- **Leçon** : quand la carte et Python divergent, **isoler l'étage** : vérifier l'entrée, puis exécuter le même code C sur PC.
+  Un dump mémoire par SWD (`-u adresse taille fichier`) permet de comparer des milliers de valeurs, pas seulement une erreur max.

@@ -67,6 +67,8 @@
  #include "test_vectors/tv_tinypose.h"
  #include "test_vectors/tv_normalize.h"
  #include "test_vectors/tv_temporal.h"
+ #include "preprocess.h"
+ #include "test_vectors/tv_preprocess.h"
 /* USER CODE END includes */
 
 /* IO buffers ----------------------------------------------------------------*/
@@ -291,6 +293,36 @@ static void test_chain(void)
          (unsigned long)(probs[4] * 1000), (unsigned long)(probs[5] * 1000));
 }
 
+/* Test 5: camera preprocessing (RGB565 320x240 -> 128x128x3), written straight into the TinyPose input,
+   then TinyPose + decoding on that image: compared with Python (pc/common/preprocess.py + tflite int8) */
+static void test_preprocess(void)
+{
+  uint8_t *in = (uint8_t *)ai_input[0].data;
+  cycles_start();
+  preprocess_camera_to_tinypose(&tv_pp_input[0][0], in);
+  uint32_t us = cycles_to_us(DWT->CYCCNT);
+
+  const uint8_t *exp = &tv_pp_expected[0][0][0];
+  int max_err = 0, n_diff = 0;
+  for (int i = 0; i < AI_TINYPOSE_IN_1_SIZE_BYTES; i++) {
+    int d = abs(in[i] - exp[i]);
+    if (d > max_err) max_err = d;
+    if (d != 0) n_diff++;
+  }
+  printf("[TEST] pretraitement : %lu us, erreur max = %d, octets differents = %d / %d\r\n",
+         us, max_err, n_diff, AI_TINYPOSE_IN_1_SIZE_BYTES);
+
+  if (ai_run() != 0) return;
+  pose_t pose;
+  pose_decode_heatmaps((const int8_t *)ai_output[0].data, 32, 128,
+                       TV_POSE_OUT_SCALE, TV_POSE_OUT_ZERO_POINT, &pose);
+  float joints[15][2];
+  for (int j = 0; j < 15; j++) { joints[j][0] = pose.x[j]; joints[j][1] = pose.y[j]; }
+  printf("[TEST] pretraitement + tinypose : joints %lu e-6 px, scores %lu e-6\r\n",
+         MICRO(max_abs_diff(&joints[0][0], &tv_pp_expected_joints[0][0], 30)),
+         MICRO(max_abs_diff(pose.score, tv_pp_expected_scores, 15)));
+}
+
 
 int acquire_and_process_data(ai_i8* data[])
 {
@@ -350,6 +382,7 @@ void MX_X_CUBE_AI_Process(void)
     done = 1;
     test_tinypose();
     test_chain();
+    test_preprocess();
   }
     /* USER CODE END 6 */
 }

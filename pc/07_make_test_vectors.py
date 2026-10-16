@@ -9,6 +9,8 @@ Fichiers générés (firmware/firmware/CM7/Core/Inc/test_vectors/, dans le proje
                    (inclut volontairement un joint à score faible et une frame à échelle nulle,
                     pour tester les deux chemins « valeur précédente » du code C)
   tv_temporal.h  : fenêtre 16×F float -> 6 probabilités attendues
+  tv_preprocess.h: image caméra 320×240 RGB565 (uint16) -> entrée TinyPose 128×128×3 uint8 attendue
+                   + joints/scores attendus après TinyPose int8 (test de la chaîne prétraitement -> TinyPose)
 
 Usage : python pc/07_make_test_vectors.py --pose A_hm128 --temporal A_hm128_tcn
 """
@@ -18,6 +20,7 @@ import random
 import sys
 from pathlib import Path
 
+import cv2
 import numpy as np
 import tensorflow as tf
 
@@ -25,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from common.data import build_samples, load_index, make_sample  # noqa: E402
 from common.heatmap import decode_heatmaps  # noqa: E402
 from common.normalize import SkeletonNormalizer  # noqa: E402
+from common.preprocess import camera_to_tinypose, rgb888_to_rgb565  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "firmware" / "firmware" / "CM7" / "Core" / "Inc" / "test_vectors"  # dans le projet CubeIDE du M7
@@ -111,6 +115,22 @@ def main():
             + c_array("float", "tv_temp_input", window) + c_array("float", "tv_temp_expected_probs", probs))
     (OUT / "tv_temporal.h").write_text(header("tv_temporal.h", body,
         f"Modèle {args.temporal} ; classes jump, clap, wave, sit, stand, other ; ordre chronologique."),
+        encoding="utf-8")
+
+    # ---------- 4. Prétraitement caméra : une frame JHMDB entière (320×240) convertie en RGB565 ----------
+    frame = cv2.cvtColor(cv2.imread(sample[0]), cv2.COLOR_BGR2RGB)   # même frame que le test TinyPose
+    assert frame.shape == (240, 320, 3)
+    frame565 = rgb888_to_rgb565(frame)        # ce que le capteur mettrait en SDRAM
+    x = camera_to_tinypose(frame565)          # recadrage centre + RGB888 + bilinéaire 128×128
+    y_pp, _ = tflite_run(models / "tinypose" / args.pose / "tinypose_int8.tflite", x)
+    joints_pp, scores_pp = decode_heatmaps((y_pp.astype(np.float32) - zp) * scale, 128)
+    body = ("#define TV_PP_CAM_W 320\n#define TV_PP_CAM_H 240\n\n"
+            + c_array("uint16_t", "tv_pp_input", frame565)
+            + c_array("uint8_t", "tv_pp_expected", x)
+            + c_array("float", "tv_pp_expected_joints", joints_pp)
+            + c_array("float", "tv_pp_expected_scores", scores_pp))
+    (OUT / "tv_preprocess.h").write_text(header("tv_preprocess.h", body,
+        f"Frame {sample[0]} en RGB565 ; sortie HWC RGB uint8 128x128 ; joints en pixels 128x128 (TinyPose int8)."),
         encoding="utf-8")
 
     for f in sorted(OUT.glob("*.h")):

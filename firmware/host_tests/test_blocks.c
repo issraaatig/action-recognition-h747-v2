@@ -5,6 +5,7 @@
  *   gcc -O2 -Wall -Ifirmware/firmware/CM7/Core/Inc -Ifirmware/firmware/CM7/Core/Inc/test_vectors \
  *       firmware/host_tests/test_blocks.c firmware/firmware/CM7/Core/Src/pose_postproc.c \
  *       firmware/firmware/CM7/Core/Src/skeleton_norm.c firmware/firmware/CM7/Core/Src/temporal_buffer.c \
+ *       firmware/firmware/CM7/Core/Src/preprocess.c \
  *       -lm -o firmware/host_tests/test_blocks.exe
  *   ./firmware/host_tests/test_blocks.exe
  */
@@ -12,9 +13,11 @@
 #include <stdio.h>
 
 #include "pose_postproc.h"
+#include "preprocess.h"
 #include "skeleton_norm.h"
 #include "temporal_buffer.h"
 #include "tv_normalize.h"
+#include "tv_preprocess.h"
 #include "tv_temporal.h"
 #include "tv_tinypose.h"
 
@@ -71,6 +74,19 @@ int main(void)
   tbuf_get_chronological(&buf, window);
   ok &= report("buffer -> fenêtre chronologique", max_abs_diff(window, &tv_temp_input[0][0],
                                                                 TBUF_LEN * TV_NORM_N_FEATURES));
+
+  /* 4. Prétraitement caméra : RGB565 320x240 -> 128x128x3 uint8 (doit être identique au bit près) */
+  static uint8_t pp_out[PP_OUT * PP_OUT * 3];
+  preprocess_camera_to_tinypose(&tv_pp_input[0][0], pp_out);
+  const uint8_t *pp_exp = &tv_pp_expected[0][0][0];
+  int pp_err = 0, pp_ndiff = 0;
+  for (int i = 0; i < PP_OUT * PP_OUT * 3; i++) {
+    int d = pp_out[i] > pp_exp[i] ? pp_out[i] - pp_exp[i] : pp_exp[i] - pp_out[i];
+    if (d) pp_ndiff++;
+    if (d > pp_err) pp_err = d;
+  }
+  printf("(pretraitement : %d / %d octets differents)\n", pp_ndiff, PP_OUT * PP_OUT * 3);
+  ok &= report("pretraitement camera -> 128x128", (float)pp_err);
 
   printf("\n%s\n", ok ? "TOUS LES BLOCS SONT CONFORMES A PYTHON" : "AU MOINS UN BLOC DIFFERE DE PYTHON");
   return ok ? 0 : 1;
