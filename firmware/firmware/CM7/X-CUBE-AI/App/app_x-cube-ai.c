@@ -68,6 +68,7 @@
  #include "test_vectors/tv_normalize.h"
  #include "test_vectors/tv_temporal.h"
  #include "preprocess.h"
+ #include "pose_live.h"
  #include "test_vectors/tv_preprocess.h"
 /* USER CODE END includes */
 
@@ -324,6 +325,25 @@ static void test_preprocess(void)
 }
 
 
+/* Live use (called by camera_app.c): camera frame -> preprocessing -> TinyPose -> 15 joints.
+   The preprocessing writes straight into the network input buffer (no intermediate copy). */
+int pose_estimate(const uint16_t *frame565, pose_t *pose, uint32_t *us_pre, uint32_t *us_net)
+{
+  cycles_start();
+  preprocess_camera_to_tinypose(frame565, (uint8_t *)ai_input[0].data);
+  *us_pre = cycles_to_us(DWT->CYCCNT);
+
+  cycles_start();
+  if (ai_run() != 0) return -1;
+  *us_net = cycles_to_us(DWT->CYCCNT);
+
+  /* output quantization parameters read from the network itself (same values as in the X-CUBE-AI report) */
+  pose_decode_heatmaps((const int8_t *)ai_output[0].data, 32, 128,
+                       AI_BUFFER_META_INFO_INTQ_GET_SCALE(ai_output[0].meta_info, 0),
+                       AI_BUFFER_META_INFO_INTQ_GET_ZEROPOINT(ai_output[0].meta_info, 0), pose);
+  return 0;
+}
+
 int acquire_and_process_data(ai_i8* data[])
 {
   /* fill the inputs of the c-model
@@ -377,8 +397,11 @@ void MX_X_CUBE_AI_Init(void)
 void MX_X_CUBE_AI_Process(void)
 {
     /* USER CODE BEGIN 6 */
+  /* Board tests against the Python test vectors (all validated, see docs/results.md).
+     Set RUN_TESTS to 1 to run them again once at start-up (~0.3 s). */
+#define RUN_TESTS 0
   static int done = 0;          /* run the tests only once, then let main() continue */
-  if (!done) {
+  if (RUN_TESTS && !done) {
     done = 1;
     test_tinypose();
     test_chain();

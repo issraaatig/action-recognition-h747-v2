@@ -221,10 +221,8 @@ Error_Handler();
 
   MX_X_CUBE_AI_Process();
     /* USER CODE BEGIN 3 */
-    if (cam_ok) camera_capture_and_show();       /* latest camera image (camera runs continuously) */
-    HAL_GPIO_TogglePin(GPIOI, GPIO_PIN_12);      /* green LED LD1: on <-> off */
-    printf("tick = %lu ms\r\n", HAL_GetTick());  /* time since reset */
-    HAL_Delay(100);
+    if (cam_ok) camera_capture_and_show();       /* frame -> screen -> TinyPose -> skeleton (stats every 1 s) */
+    HAL_GPIO_TogglePin(GPIOI, GPIO_PIN_12);      /* green LED LD1: toggles once per processed image */
   }
   /* USER CODE END 3 */
 }

@@ -104,3 +104,4 @@ puis amélioration prévue en Phase 9 (ROI tracking : recadrer autour du squelet
 | TinyPose sur cette image : carte vs **TFLite** | 3 755 / 15 360 valeurs différentes (max 27), joint 12 décalé de 70 px (score 0,25) |
 | TinyPose sur cette image : carte vs **code C X-CUBE-AI exécuté sur PC** (`stedgeai validate --mode host`) | **0 différence** → la carte exécute fidèlement le code généré |
 | X-CUBE-AI vs TFLite sur 100 images test (centre fixe) | 43 images avec ≥ 1 valeur différente (11,7 % des valeurs), **PCK identique : 0,621 vs 0,622** |
+| **TinyPose en direct** (caméra → prétraitement → TinyPose → squelette dessiné) | squelette affiché sur l'image | **OK**, `erreurs DCMI 0` sur 2 × ~40 s | **3,7 img/s** : attente image 97 ms, prétraitement 24 ms (lecture SDRAM non cacheable), TinyPose 112 ms, copie + dessin ~37 ms |

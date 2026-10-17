@@ -8,6 +8,6 @@
 #define CAMERA_APP_H
 
 int  camera_init(void);               /* 0 = OK, -1 = sensor not detected */
-void camera_capture_and_show(void);   /* one snapshot -> SDRAM -> centre of the LCD */
+void camera_capture_and_show(void);   /* one live step: frame -> LCD -> TinyPose -> skeleton drawn */
 
 #endif /* CAMERA_APP_H */

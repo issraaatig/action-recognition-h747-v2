@@ -106,3 +106,15 @@ Une entrée par bug résolu. Format :
   pas TFLite. Écart accepté (précision identique).
 - **Leçon** : quand la carte et Python divergent, **isoler l'étage** : vérifier l'entrée, puis exécuter le même code C sur PC.
   Un dump mémoire par SWD (`-u adresse taille fichier`) permet de comparer des milliers de valeurs, pas seulement une erreur max.
+
+## 2026-10-17 [Phase 3.4b] Caméra arrêtée après ~28 s de fonctionnement en direct (overrun rare)
+- **Symptôme** : squelette OK pendant ~28 s, puis `pas d'image en 500 ms (erreurs DCMI : 1)` à l'infini.
+- **Hypothèses** : 1. l'affichage du texte « x img/s » (FillRect DMA2D 800×30 + caractères, en SDRAM) était fait **après**
+  `BSP_CAMERA_Resume` → collision occasionnelle avec le DMA caméra ; 2. le LTDC seul provoque parfois un overrun.
+- **Méthode** : relecture de l'ordre des accès SDRAM dans la boucle ; panne rare (1 fois/s de dessin, collision seulement si la
+  capture démarre pendant le dessin) cohérente avec l'hypothèse 1. Vérification du flash : octets de `camera_capture_and_show`
+  lus par SWD = ceux de l'ELF (et, avant, détection d'un oubli de flash par la même méthode).
+- **Correction** : `BSP_CAMERA_Resume` déplacé à la fin (après tout dessin) + redémarrage automatique de la caméra
+  (`BSP_CAMERA_Stop` / `Start`) si aucune image en 500 ms. Résultat : 0 erreur sur 2 × ~40 s (à confirmer sur plusieurs minutes).
+- **Leçon** : un bug rare = une collision temporelle. Lister **tous** ceux qui accèdent à la ressource partagée (CPU, DMA2D, LTDC,
+  DMA caméra) et **quand**. Et un système embarqué doit se relever seul d'une erreur (ici, redémarrage du périphérique).
