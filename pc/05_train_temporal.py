@@ -66,7 +66,7 @@ def corrupt_skeleton(J, S, rng, p_err=0.15, p_low=0.08, jitter=2.0):
     return J.astype(np.float32), S
 
 
-def make_dataset(clips, root_motion, steps, augment, rng, n_noisy=0, smooth=0.0):
+def make_dataset(clips, root_motion, steps, augment, rng, n_noisy=0, smooth=0.0, n_idle=0):
     X, y, clip_id = [], [], []
     for k, (J, S, m) in enumerate(clips):
         for step in steps:
@@ -86,6 +86,15 @@ def make_dataset(clips, root_motion, steps, augment, rng, n_noisy=0, smooth=0.0)
                 X.append(v)
                 y += [label_of(m["class"])] * len(v)
                 clip_id += [k] * len(v)
+        # Fenêtres IMMOBILES étiquetées "other" : JHMDB ne contient que des actions en cours, le modèle n'a
+        # jamais vu quelqu'un d'immobile -> sur la carte, une personne debout immobile était souvent prise pour SIT.
+        # Une pose du clip est figée sur WINDOW frames, avec le bruit de TinyPose (tremblement, joints ratés).
+        for _ in range(n_idle):
+            t = rng.integers(len(J))
+            Jw, Sw = corrupt_skeleton(np.repeat(J[t:t + 1], WINDOW, 0), np.repeat(S[t:t + 1], WINDOW, 0), rng)
+            X.append(normalize_sequence(Jw, Sw, root_motion, smooth)[None])
+            y.append(CLASSES.index("other"))
+            clip_id.append(k)
     return np.concatenate(X).astype(np.float32), np.array(y), np.array(clip_id)
 
 
@@ -133,6 +142,7 @@ def main():
     ap.add_argument("--variant", default="A_hm128", help="variante TinyPose ayant produit les squelettes")
     ap.add_argument("--epochs", type=int, default=150)
     ap.add_argument("--noisy", type=int, default=0, help="nb de copies bruitées par clip (bruit type TinyPose)")
+    ap.add_argument("--idle", type=int, default=0, help="nb de fenêtres immobiles (classe other) par clip d'entraînement")
     ap.add_argument("--smooth", type=float, default=0.0, help="lissage exponentiel des joints (0 = aucun, 0.6 = fort)")
     ap.add_argument("--window", type=int, default=16, help="longueur de fenêtre (frames traitées)")
     ap.add_argument("--steps", type=int, nargs="+", default=[1, 2, 3], help="pas d'échantillonnage à l'entraînement")
@@ -151,7 +161,7 @@ def main():
     n_val = len(train) // 10
     val, train = train[:n_val], train[n_val:]
 
-    Xtr, ytr, _ = make_dataset(train, args.root_motion, args.steps, True, rng, n_noisy=args.noisy, smooth=args.smooth)
+    Xtr, ytr, _ = make_dataset(train, args.root_motion, args.steps, True, rng, n_noisy=args.noisy, smooth=args.smooth, n_idle=args.idle)
     Xva, yva, _ = make_dataset(val, args.root_motion, [TEST_STEP], False, rng, smooth=args.smooth)
     Xte, yte, cte = make_dataset(test, args.root_motion, [TEST_STEP], False, rng, smooth=args.smooth)
     print(f"fenêtres : train {len(Xtr)}, val {len(Xva)}, test {len(Xte)} ; features {Xtr.shape[-1]}")
@@ -164,7 +174,7 @@ def main():
     model = build_model(args.model, Xtr.shape[-1])
     model.summary(print_fn=lambda s: None)
     model.compile(keras.optimizers.Adam(1e-3), "sparse_categorical_crossentropy", metrics=["accuracy"])
-    name = f"{args.variant}_{args.model}{'_rm' if args.root_motion else ''}{'_noisy' if args.noisy else ''}{f'_s{args.smooth:g}' if args.smooth else ''}{f'_w{WINDOW}' if WINDOW != 16 else ''}"
+    name = f"{args.variant}_{args.model}{'_rm' if args.root_motion else ''}{'_noisy' if args.noisy else ''}{f'_idle{args.idle}' if args.idle else ''}{f'_s{args.smooth:g}' if args.smooth else ''}{f'_w{WINDOW}' if WINDOW != 16 else ''}"
     out_dir = Path(__file__).parent / "models" / "temporal" / name
     out_dir.mkdir(parents=True, exist_ok=True)
     model.fit(Xtr, ytr, validation_data=(Xva, yva), epochs=args.epochs, batch_size=256, verbose=0,

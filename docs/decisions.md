@@ -116,3 +116,9 @@
 - Retenu : **TCN 30 features (sans root motion), bruit d'entraînement ×3, fenêtre 8** : même précision que la référence, même
   normalisation que le code C déjà validé, buffer 2× plus court. Côté C : `TBUF_LEN = 8` ; TCN à régénérer dans CubeMX
   depuis `pc/models/temporal/A_hm128_tcn_noisy_w8/model_float32.tflite` (un `_Static_assert` empêche la compilation sinon).
+- **Biais SIT sur la carte** (2026-10-18) : la carte affiche SIT pour une personne debout immobile. Test PC sur fenêtres
+  immobiles (1 pose figée ×8 + 1,5 px de bruit, 266 poses test) : other 42 %, **SIT 21 %** (1re action prédite).
+  Essai : ajouter à l'entraînement des fenêtres immobiles étiquetées other (`--idle 2` / `--idle 5`) → **aucun effet**
+  (SIT 20 %, précision clip 0,485 / 0,447 : non retenu). Sans mouvement, le TCN juge la FORME de la pose ; or une partie des
+  poses JHMDB « immobiles » sont réellement assises. Le vrai problème est l'écart JHMDB ↔ caméra de la carte
+  → prochaine piste : enregistrer des squelettes produits par la carte elle-même (UART) et affiner le TCN dessus.
