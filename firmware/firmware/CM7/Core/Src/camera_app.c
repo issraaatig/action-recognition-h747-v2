@@ -13,9 +13,12 @@
 
 static volatile int frame_ready = 0;       /* set by the DCMI interrupt, read by the main loop: volatile */
 
-/* Called by the BSP (from the DCMI interrupt) when a whole frame is in the SDRAM */
+/* Called by the BSP (from the DCMI interrupt) when a whole frame is in the SDRAM.
+   The capture is paused HERE, right at the end of the frame: otherwise the next frame would start
+   overwriting this one (circular DMA) before the main loop has read it. The main loop resumes it. */
 void BSP_CAMERA_FrameEventCallback(uint32_t Instance)
 {
+  BSP_CAMERA_Suspend(0);
   frame_ready = 1;
 }
 
@@ -79,13 +82,17 @@ static void draw_skeleton(const pose_t *p)
       UTIL_LCD_FillCircle(to_screen_x(p->x[j]), to_screen_y(p->y[j]), 3, UTIL_LCD_COLOR_WHITE);
 }
 
-/* One step of the live loop:
-   wait for a frame -> pause the camera -> show it -> TinyPose on it -> draw the skeleton -> restart the camera.
-   The camera stays paused during the whole processing: the frame in SDRAM does not change under our feet
-   and the SDRAM bus is free for the CPU (no DCMI overrun). */
+/* One step of the live loop (the camera captures frame N+1 while TinyPose works on frame N):
+
+   wait for frame N (the interrupt has paused the camera) -> copy it to the screen -> preprocess it
+   -> resume the camera (frame N+1 is captured from now on) -> TinyPose on N -> draw the skeleton
+
+   Everything that READS the frame or makes heavy SDRAM writes (copy, preprocessing, text) is done while the
+   camera is paused: the frame does not change under our feet and the SDRAM bus is free (no DCMI overrun).
+   TinyPose only uses the internal AXI SRAM, so it can run in parallel with the capture. */
 void camera_capture_and_show(void)
 {
-  static uint32_t n_frames = 0, t_last_report = 0, sum_wait = 0, sum_pre = 0, sum_net = 0;
+  static uint32_t n_frames = 0, t_last_report = 0, sum_wait = 0, sum_copy = 0, sum_pre = 0, sum_net = 0;
 
   uint32_t t0 = HAL_GetTick();
   while (!frame_ready) {                   /* the DMA fills the SDRAM while we wait */
@@ -99,48 +106,46 @@ void camera_capture_and_show(void)
     }
   }
   frame_ready = 0;                         /* frame consumed: the next one will set it again */
-  uint32_t t_capture = HAL_GetTick() - t0;
-
-  /* Pause the capture during the copy: CPU copy + LCD refresh + camera DMA all use the SDRAM bus,
-     and the DCMI FIFO overflows (overrun) if its DMA has to wait too long. */
-  BSP_CAMERA_Suspend(0);
+  uint32_t t1 = HAL_GetTick();
 
   /* RGB565 (16 bits: 5 red, 6 green, 5 blue) -> ARGB8888 (8 bits per channel) for the LCD */
   const uint16_t *cam = (const uint16_t *)CAMERA_FRAME_BUFFER;
   uint32_t *lcd = (uint32_t *)LCD_LAYER_0_ADDRESS;
-  const uint32_t x0 = (800 - CAM_W) / 2, y0 = (480 - CAM_H) / 2;
   for (uint32_t y = 0; y < CAM_H; y++) {
     for (uint32_t x = 0; x < CAM_W; x++) {
       uint16_t p = cam[y * CAM_W + x];
       uint32_t r = (p >> 11) & 0x1F, g = (p >> 5) & 0x3F, b = p & 0x1F;
-      lcd[(y0 + y) * 800 + (x0 + x)] = 0xFF000000u | (r << 19) | (g << 10) | (b << 3);
+      lcd[(SCREEN_Y0 + y) * 800 + (SCREEN_X0 + x)] = 0xFF000000u | (r << 19) | (g << 10) | (b << 3);
     }
   }
+  uint32_t t2 = HAL_GetTick();
 
-  /* TinyPose on the same frame, then the skeleton on top of the image */
-  pose_t pose;
   uint32_t us_pre = 0, us_net = 0;
-  if (pose_estimate(cam, &pose, &us_pre, &us_net) == 0)
-    draw_skeleton(&pose);
+  pose_preprocess(cam, &us_pre);           /* last read of the frame: after this the camera buffer is free */
 
-  /* Statistics printed once per second: images per second and where the time goes */
+  /* Statistics once per second: images per second and where the time goes (drawn while the camera is paused) */
   n_frames++;
-  sum_wait += t_capture; sum_pre += us_pre; sum_net += us_net;
+  sum_wait += t1 - t0; sum_copy += t2 - t1; sum_pre += us_pre;
   uint32_t now = HAL_GetTick();
   if (now - t_last_report >= 1000) {
     uint32_t dt = now - t_last_report;
     uint32_t fps10 = n_frames * 10000 / dt;                  /* images per second x10 (no float printf) */
-    printf("[LIVE] %lu.%lu img/s | attente %lu ms, pretraitement %lu ms, tinypose %lu ms | erreurs DCMI %lu\r\n",
-           fps10 / 10, fps10 % 10, sum_wait / n_frames, sum_pre / n_frames / 1000, sum_net / n_frames / 1000,
-           (unsigned long)cam_errors);
+    printf("[LIVE] %lu.%lu img/s | attente %lu ms, copie ecran %lu ms, pretraitement %lu ms, tinypose %lu ms"
+           " | erreurs DCMI %lu\r\n",
+           fps10 / 10, fps10 % 10, sum_wait / n_frames, sum_copy / n_frames, sum_pre / n_frames / 1000,
+           sum_net / n_frames / 1000, (unsigned long)cam_errors);
     char txt[24];
     snprintf(txt, sizeof txt, "%lu.%lu img/s", fps10 / 10, fps10 % 10);
     UTIL_LCD_FillRect(0, 400, 800, 30, UTIL_LCD_COLOR_BLUE);  /* erase the previous text */
     UTIL_LCD_DisplayStringAt(0, 403, (uint8_t *)txt, CENTER_MODE);
-    n_frames = sum_wait = sum_pre = sum_net = 0;
+    n_frames = sum_wait = sum_copy = sum_pre = sum_net = 0;
     t_last_report = now;
   }
 
-  /* Restart the capture only now: the text drawing above (DMA2D fill + characters) also writes to the SDRAM */
-  BSP_CAMERA_Resume(0);
+  BSP_CAMERA_Resume(0);                    /* frame N+1 is captured from now on, in parallel with TinyPose */
+
+  pose_t pose;
+  if (pose_infer(&pose, &us_net) == 0)
+    draw_skeleton(&pose);                  /* small SDRAM writes during the capture: watch the DCMI error count */
+  sum_net += us_net;
 }

@@ -325,14 +325,19 @@ static void test_preprocess(void)
 }
 
 
-/* Live use (called by camera_app.c): camera frame -> preprocessing -> TinyPose -> 15 joints.
-   The preprocessing writes straight into the network input buffer (no intermediate copy). */
-int pose_estimate(const uint16_t *frame565, pose_t *pose, uint32_t *us_pre, uint32_t *us_net)
+/* Live use (called by camera_app.c), in two steps so that the camera can capture the next frame
+   while TinyPose runs (TinyPose only uses the internal AXI SRAM, not the SDRAM).
+   Step 1: camera frame -> preprocessing, written straight into the network input buffer (no copy). */
+void pose_preprocess(const uint16_t *frame565, uint32_t *us_pre)
 {
   cycles_start();
   preprocess_camera_to_tinypose(frame565, (uint8_t *)ai_input[0].data);
   *us_pre = cycles_to_us(DWT->CYCCNT);
+}
 
+/* Step 2: TinyPose on the prepared input -> 15 joints */
+int pose_infer(pose_t *pose, uint32_t *us_net)
+{
   cycles_start();
   if (ai_run() != 0) return -1;
   *us_net = cycles_to_us(DWT->CYCCNT);
