@@ -13,6 +13,8 @@ Usage :
     python pc/05_train_temporal.py --model tcn            # TCN, 30 features (spec CLAUDE.md)
     python pc/05_train_temporal.py --model tcn --root-motion   # + mouvement global du bassin (32 features)
     python pc/05_train_temporal.py --model gru [--root-motion]
+    python pc/05_train_temporal.py --model tcn --window 8 --steps 4 5 6 --test-step 5   # adapté à la carte
+         (carte à ~5,6 img/s -> 1 image traitée ≈ 30/5,6 ≈ 5 images JHMDB ; 8 images ≈ 1,3 s ≈ un clip JHMDB)
 """
 import argparse
 import json
@@ -29,8 +31,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from common.normalize import mirror_features, normalize_sequence  # noqa: E402
 
 CLASSES = ["jump", "clap", "wave", "sit", "stand", "other"]
-WINDOW = 16
-TEST_STEP = 2  # pas utilisé pour l'évaluation (≈ 15 FPS) ; à ajuster quand le FPS de la carte sera mesuré
+WINDOW = 16    # longueur de fenêtre (frames traitées) ; modifiable par --window
+TEST_STEP = 2  # pas utilisé pour l'évaluation (≈ 15 FPS) ; modifiable par --test-step (≈ 30 / FPS de la carte)
 
 
 def label_of(cls):
@@ -90,8 +92,8 @@ def make_dataset(clips, root_motion, steps, augment, rng, n_noisy=0, smooth=0.0)
 def build_model(kind, n_feat):
     inp = keras.Input((WINDOW, n_feat), name="skeleton_window")
     if kind == "tcn":
-        x = layers.Conv1D(32, 3, activation="relu", name="conv1")(inp)                  # 16 -> 14
-        x = layers.Conv1D(32, 3, dilation_rate=2, activation="relu", name="conv2")(x)   # 14 -> 10
+        x = layers.Conv1D(32, 3, activation="relu", name="conv1")(inp)                  # 16 -> 14 (8 -> 6)
+        x = layers.Conv1D(32, 3, dilation_rate=2, activation="relu", name="conv2")(x)   # 14 -> 10 (6 -> 2)
         x = layers.GlobalAveragePooling1D(name="gap")(x)
     else:
         x = layers.GRU(32, unroll=True, name="gru")(inp)  # 16 pas fixes -> boucle déroulée (convertible)
@@ -132,7 +134,12 @@ def main():
     ap.add_argument("--epochs", type=int, default=150)
     ap.add_argument("--noisy", type=int, default=0, help="nb de copies bruitées par clip (bruit type TinyPose)")
     ap.add_argument("--smooth", type=float, default=0.0, help="lissage exponentiel des joints (0 = aucun, 0.6 = fort)")
+    ap.add_argument("--window", type=int, default=16, help="longueur de fenêtre (frames traitées)")
+    ap.add_argument("--steps", type=int, nargs="+", default=[1, 2, 3], help="pas d'échantillonnage à l'entraînement")
+    ap.add_argument("--test-step", type=int, default=2, help="pas d'échantillonnage pour val/test (≈ 30 / FPS carte)")
     args = ap.parse_args()
+    global WINDOW, TEST_STEP
+    WINDOW, TEST_STEP = args.window, args.test_step
     rng = np.random.default_rng(0)
     tf.random.set_seed(0)
 
@@ -144,7 +151,7 @@ def main():
     n_val = len(train) // 10
     val, train = train[:n_val], train[n_val:]
 
-    Xtr, ytr, _ = make_dataset(train, args.root_motion, [1, 2, 3], True, rng, n_noisy=args.noisy, smooth=args.smooth)
+    Xtr, ytr, _ = make_dataset(train, args.root_motion, args.steps, True, rng, n_noisy=args.noisy, smooth=args.smooth)
     Xva, yva, _ = make_dataset(val, args.root_motion, [TEST_STEP], False, rng, smooth=args.smooth)
     Xte, yte, cte = make_dataset(test, args.root_motion, [TEST_STEP], False, rng, smooth=args.smooth)
     print(f"fenêtres : train {len(Xtr)}, val {len(Xva)}, test {len(Xte)} ; features {Xtr.shape[-1]}")
@@ -157,7 +164,7 @@ def main():
     model = build_model(args.model, Xtr.shape[-1])
     model.summary(print_fn=lambda s: None)
     model.compile(keras.optimizers.Adam(1e-3), "sparse_categorical_crossentropy", metrics=["accuracy"])
-    name = f"{args.variant}_{args.model}{'_rm' if args.root_motion else ''}{'_noisy' if args.noisy else ''}{f'_s{args.smooth:g}' if args.smooth else ''}"
+    name = f"{args.variant}_{args.model}{'_rm' if args.root_motion else ''}{'_noisy' if args.noisy else ''}{f'_s{args.smooth:g}' if args.smooth else ''}{f'_w{WINDOW}' if WINDOW != 16 else ''}"
     out_dir = Path(__file__).parent / "models" / "temporal" / name
     out_dir.mkdir(parents=True, exist_ok=True)
     model.fit(Xtr, ytr, validation_data=(Xva, yva), epochs=args.epochs, batch_size=256, verbose=0,
@@ -184,7 +191,7 @@ def main():
         print(f"{c:>7s} " + " ".join(f"{v:6d}" for v in row))
     (out_dir / "results.json").write_text(json.dumps({
         "model": name, "params": int(model.count_params()), "n_features": int(Xtr.shape[-1]), "smooth": args.smooth,
-        "test_window_acc": win_acc, "test_clip_acc": clip_acc, "confusion": conf.tolist(), "classes": CLASSES,
+        "window": WINDOW, "train_steps": args.steps, "test_step": TEST_STEP, "test_window_acc": win_acc, "test_clip_acc": clip_acc, "confusion": conf.tolist(), "classes": CLASSES,
     }, indent=1))
 
 

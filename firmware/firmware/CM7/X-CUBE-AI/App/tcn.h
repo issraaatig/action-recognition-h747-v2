@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    tcn.h
   * @author  AST Embedded Analytics Research Platform
-  * @date    2026-10-16T21:26:44+0100
+  * @date    2026-10-18T00:33:03+0100
   * @brief   AI Tool Automatic Code Generator for Embedded NN computing
   ******************************************************************************
   * @attention
@@ -44,10 +44,10 @@ AI_DEPRECATED
   AI_TCN_IN_1_SIZE_BYTES, \
 }
 #define AI_TCN_IN_1_FORMAT      (AI_BUFFER_FORMAT_FLOAT)
-#define AI_TCN_IN_1_HEIGHT      (16)
+#define AI_TCN_IN_1_HEIGHT      (8)
 #define AI_TCN_IN_1_CHANNEL     (30)
-#define AI_TCN_IN_1_SIZE        (480)
-#define AI_TCN_IN_1_SIZE_BYTES  (1920)
+#define AI_TCN_IN_1_SIZE        (240)
+#define AI_TCN_IN_1_SIZE_BYTES  (960)
 
 /******************************************************************************/
 #define AI_TCN_OUT_NUM       (1)

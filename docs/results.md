@@ -106,3 +106,11 @@ puis amélioration prévue en Phase 9 (ROI tracking : recadrer autour du squelet
 | X-CUBE-AI vs TFLite sur 100 images test (centre fixe) | 43 images avec ≥ 1 valeur différente (11,7 % des valeurs), **PCK identique : 0,621 vs 0,622** |
 | **TinyPose en direct** (caméra → prétraitement → TinyPose → squelette dessiné) | squelette affiché sur l'image | **OK**, `erreurs DCMI 0` sur 2 × ~40 s | **3,7 img/s** : attente image 97 ms, prétraitement 24 ms (lecture SDRAM non cacheable), TinyPose 112 ms, copie + dessin ~37 ms |
 | TinyPose en direct, **capture en parallèle de TinyPose** (pause caméra dans l'IRQ de fin d'image, reprise après prétraitement) | squelette en direct | **OK**, `erreurs DCMI 0` sur ~80 s | **5,6 img/s** : attente 10 ms, copie écran 25 ms, prétraitement 24 ms, TinyPose 112 ms (-O0) |
+
+## Chaîne complète sur la carte (Phase 3.6) — caméra → TinyPose → normalisation → buffer 8 → TCN → lissage → action
+| Mesure | Valeur |
+|---|---|
+| FPS | **5,6 img/s** (attente 6-7 ms, copie 25 ms, prétraitement 24 ms, TinyPose 112 ms, **TCN 0,37 ms**) |
+| TCN fenêtre 8 (X-CUBE-AI, float) | 24 Ko poids, 2 Ko activations, entrée 960 o |
+| Erreurs DCMI | 0 sur ~65 s |
+| Premier essai en direct (1 personne, sans protocole) | WAVE reconnu (66-69 %), JUMP une fois (75 %) ; **biais fort vers SIT** (souvent 60-80 %) ; CLAP jamais au-dessus du seuil |

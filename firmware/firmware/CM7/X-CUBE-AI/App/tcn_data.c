@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    tcn_data.c
   * @author  AST Embedded Analytics Research Platform
-  * @date    2026-10-16T21:26:44+0100
+  * @date    2026-10-18T00:33:03+0100
   * @brief   AI Tool Automatic Code Generator for Embedded NN computing
   ******************************************************************************
   * @attention
@@ -21,8 +21,8 @@
 AI_API_DECLARE_BEGIN
 ai_buffer g_tcn_data_map_activations[AI_TCN_DATA_ACTIVATIONS_COUNT] = {
   AI_BUFFER_INIT(AI_FLAG_NONE,  AI_BUFFER_FORMAT_U8,
-    AI_BUFFER_SHAPE_INIT(AI_SHAPE_BCWH, 4, 1, 4072, 1, 1),
-    4072, NULL, NULL),    /* heap_overlay_pool */
+    AI_BUFFER_SHAPE_INIT(AI_SHAPE_BCWH, 4, 1, 2088, 1, 1),
+    2088, NULL, NULL),    /* heap_overlay_pool */
   };
 ai_buffer g_tcn_data_map_weights[AI_TCN_DATA_WEIGHTS_COUNT] = {
   AI_BUFFER_INIT(AI_FLAG_NONE,  AI_BUFFER_FORMAT_U8,

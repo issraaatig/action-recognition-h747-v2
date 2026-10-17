@@ -95,3 +95,24 @@
 - Région 1 : 0xD0000000, 32 Mo, accès complet, **non cacheable**, non bufferable (l'exemple ST utilise cacheable write-through).
 - Avantage : aucun problème de cohérence cache/DMA quand la caméra (DCMI+DMA) écrira dans la SDRAM.
 - Coût : accès CPU plus lents (test 32 Mo écriture + relecture ≈ 0,9 s). À reconsidérer en phase 9 (cacheable + maintenance de cache).
+
+## D16 — Fenêtre du TCN adaptée au FPS réel de la carte (remplace D14)
+- FPS mesuré avec caméra : **5,6 img/s** → une image traitée ≈ 30 / 5,6 ≈ **5 images JHMDB**.
+- Les clips JHMDB font **au plus 40 images (1,3 s)** : une fenêtre de 16 images au pas 5 (75 images) n'existe pas dans le dataset
+  (elle serait surtout remplie par la 1re image répétée). → fenêtre de **8 images**, pas d'entraînement {4, 5, 6}, test au pas 5
+  (8 × 5 = 40 images ≈ 1,3 s, la même durée sur PC et sur la carte).
+- Résultats (test officiel, clip ; variabilité ± 5 points, 266 clips) :
+
+| Modèle | Fenêtre / pas test | Précision clip |
+|---|---|---|
+| A_hm128_tcn (ancien, D9) | 16 / pas 2 | 0.504 |
+| A_hm128_tcn (ancien) évalué comme la carte | 16 / pas 5 | 0.474 |
+| A_hm128_tcn_w8 | 8 / pas 5 | 0.436 |
+| A_hm128_tcn_rm_w8 | 8 / pas 5 | 0.500 |
+| **A_hm128_tcn_noisy_w8 (retenu)** | 8 / pas 5 | **0.504** |
+| A_hm128_tcn_rm_noisy_w8 | 8 / pas 5 | 0.459 |
+| A_hm128_gru_rm_w8 | 8 / pas 5 | 0.436 |
+
+- Retenu : **TCN 30 features (sans root motion), bruit d'entraînement ×3, fenêtre 8** : même précision que la référence, même
+  normalisation que le code C déjà validé, buffer 2× plus court. Côté C : `TBUF_LEN = 8` ; TCN à régénérer dans CubeMX
+  depuis `pc/models/temporal/A_hm128_tcn_noisy_w8/model_float32.tflite` (un `_Static_assert` empêche la compilation sinon).

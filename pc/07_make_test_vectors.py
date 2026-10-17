@@ -8,11 +8,11 @@ Fichiers générés (firmware/firmware/CM7/Core/Inc/test_vectors/, dans le proje
   tv_normalize.h : 20 frames de joints/scores -> features normalisées attendues
                    (inclut volontairement un joint à score faible et une frame à échelle nulle,
                     pour tester les deux chemins « valeur précédente » du code C)
-  tv_temporal.h  : fenêtre 16×F float -> 6 probabilités attendues
+  tv_temporal.h  : fenêtre W×F float (W = fenêtre du modèle, 8 ou 16) -> 6 probabilités attendues
   tv_preprocess.h: image caméra 320×240 RGB565 (uint16) -> entrée TinyPose 128×128×3 uint8 attendue
                    + joints/scores attendus après TinyPose int8 (test de la chaîne prétraitement -> TinyPose)
 
-Usage : python pc/07_make_test_vectors.py --pose A_hm128 --temporal A_hm128_tcn
+Usage : python pc/07_make_test_vectors.py --pose A_hm128 --temporal A_hm128_tcn_noisy_w8
 """
 import argparse
 import json
@@ -69,7 +69,7 @@ def main():
     sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser()
     ap.add_argument("--pose", default="A_hm128")
-    ap.add_argument("--temporal", default="A_hm128_tcn")  # modèle retenu (decisions.md D9)
+    ap.add_argument("--temporal", default="A_hm128_tcn_noisy_w8")  # modèle retenu (decisions.md D16)
     args = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
     models = Path(__file__).parent / "models"
@@ -108,10 +108,11 @@ def main():
         "Frame 5 : joint 11 score 0.05 (fallback valeur précédente). Frame 8 : neck==belly (fallback échelle)."),
         encoding="utf-8")
 
-    # ---------- 3. Modèle temporel : la dernière fenêtre de 16 frames ci-dessus ----------
-    window = feats[-16:]
+    # ---------- 3. Modèle temporel : la dernière fenêtre de W frames ci-dessus (W = 8 ou 16) ----------
+    W = cfg.get("window", 16)
+    window = feats[-W:]
     probs, _ = tflite_run(models / "temporal" / args.temporal / "model_float32.tflite", window)
-    body = (f"#define TV_TEMP_WINDOW 16\n#define TV_TEMP_N_FEATURES {window.shape[1]}\n\n"
+    body = (f"#define TV_TEMP_WINDOW {W}\n#define TV_TEMP_N_FEATURES {window.shape[1]}\n\n"
             + c_array("float", "tv_temp_input", window) + c_array("float", "tv_temp_expected_probs", probs))
     (OUT / "tv_temporal.h").write_text(header("tv_temporal.h", body,
         f"Modèle {args.temporal} ; classes jump, clap, wave, sit, stand, other ; ordre chronologique."),

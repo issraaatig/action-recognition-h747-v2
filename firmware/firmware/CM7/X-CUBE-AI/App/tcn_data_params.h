@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    tcn_data_params.h
   * @author  AST Embedded Analytics Research Platform
-  * @date    2026-10-16T21:26:44+0100
+  * @date    2026-10-18T00:33:03+0100
   * @brief   AI Tool Automatic Code Generator for Embedded NN computing
   ******************************************************************************
   * Copyright (c) 2026 STMicroelectronics.
@@ -28,10 +28,10 @@
 
 
 #define AI_TCN_DATA_ACTIVATIONS_SIZES \
-  { 4072, }
-#define AI_TCN_DATA_ACTIVATIONS_SIZE     (4072)
+  { 2088, }
+#define AI_TCN_DATA_ACTIVATIONS_SIZE     (2088)
 #define AI_TCN_DATA_ACTIVATIONS_COUNT    (1)
-#define AI_TCN_DATA_ACTIVATION_1_SIZE    (4072)
+#define AI_TCN_DATA_ACTIVATION_1_SIZE    (2088)
 
 
 

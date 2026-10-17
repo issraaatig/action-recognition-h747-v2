@@ -5,6 +5,8 @@
 #include "stm32h747i_discovery_lcd.h"
 #include "stm32_lcd.h"
 #include "pose_live.h"
+#include "skeleton_norm.h"
+#include "temporal_buffer.h"
 
 /* SDRAM map: 0xD0000000 LCD image (800x480 ARGB8888 = 0x177000 bytes), then the camera image. */
 #define CAMERA_FRAME_BUFFER  0xD0177000u
@@ -82,6 +84,55 @@ static void draw_skeleton(const pose_t *p)
       UTIL_LCD_FillCircle(to_screen_x(p->x[j]), to_screen_y(p->y[j]), 3, UTIL_LCD_COLOR_WHITE);
 }
 
+/* ---------------- Action recognition: skeleton -> normalisation -> buffer -> TCN -> smoothing ---------------- */
+static const char *const action_names[ACTION_N_CLASSES] = {"JUMP", "CLAP", "WAVE", "SIT", "STAND", "other"};
+#define SMOOTH_N   5          /* average of the last 5 predictions (CLAUDE.md section 2) */
+#define ACTION_THR 0.6f       /* below this averaged probability: no action shown */
+
+static skel_norm_t norm;
+static tbuf_t      tbuf;
+static int         action_ready = 0;                        /* 1 once norm/tbuf are initialised */
+static float       hist[SMOOTH_N][ACTION_N_CLASSES];         /* last predictions (circular) */
+static int         hist_n = 0, hist_head = 0;
+static char        action_txt[32] = "...";                  /* text drawn while the camera is paused */
+static uint32_t    us_tcn = 0;
+
+static void action_update(const pose_t *pose)
+{
+  if (!action_ready) {
+    int nf = action_n_features();
+    skel_norm_init(&norm, nf == 32, 0.0f);   /* same settings as the trained model (no root motion, no smoothing) */
+    tbuf_init(&tbuf, nf);
+    action_ready = 1;
+  }
+  float feats[NORM_MAX_FEATURES];
+  skel_norm_process(&norm, pose, feats);     /* belly = origin, neck-belly = scale, unsure joints -> previous value */
+  tbuf_push(&tbuf, feats);
+
+  static float window[TBUF_LEN * TBUF_MAX_FEATURES];
+  tbuf_get_chronological(&tbuf, window);     /* oldest -> newest, as in training */
+  float probs[ACTION_N_CLASSES];
+  if (action_infer(window, probs, &us_tcn) != 0) return;
+
+  /* smoothing: mean of the last SMOOTH_N probability vectors */
+  for (int c = 0; c < ACTION_N_CLASSES; c++) hist[hist_head][c] = probs[c];
+  hist_head = (hist_head + 1) % SMOOTH_N;
+  if (hist_n < SMOOTH_N) hist_n++;
+  int best = 0;
+  float mean[ACTION_N_CLASSES];
+  for (int c = 0; c < ACTION_N_CLASSES; c++) {
+    mean[c] = 0.0f;
+    for (int k = 0; k < hist_n; k++) mean[c] += hist[k][c];
+    mean[c] /= hist_n;
+    if (mean[c] > mean[best]) best = c;
+  }
+  unsigned pct = (unsigned)(mean[best] * 100.0f);
+  if (best == ACTION_N_CLASSES - 1 || mean[best] < ACTION_THR)
+    snprintf(action_txt, sizeof action_txt, "...  (%s %u%%)", action_names[best], pct);   /* not sure enough */
+  else
+    snprintf(action_txt, sizeof action_txt, "%s  %u%%", action_names[best], pct);
+}
+
 /* One step of the live loop (the camera captures frame N+1 while TinyPose works on frame N):
 
    wait for frame N (the interrupt has paused the camera) -> copy it to the screen -> preprocess it
@@ -130,10 +181,10 @@ void camera_capture_and_show(void)
   if (now - t_last_report >= 1000) {
     uint32_t dt = now - t_last_report;
     uint32_t fps10 = n_frames * 10000 / dt;                  /* images per second x10 (no float printf) */
-    printf("[LIVE] %lu.%lu img/s | attente %lu ms, copie ecran %lu ms, pretraitement %lu ms, tinypose %lu ms"
-           " | erreurs DCMI %lu\r\n",
+    printf("[LIVE] %lu.%lu img/s | attente %lu ms, copie ecran %lu ms, pretraitement %lu ms, tinypose %lu ms,"
+           " tcn %lu us | erreurs DCMI %lu | action : %s\r\n",
            fps10 / 10, fps10 % 10, sum_wait / n_frames, sum_copy / n_frames, sum_pre / n_frames / 1000,
-           sum_net / n_frames / 1000, (unsigned long)cam_errors);
+           sum_net / n_frames / 1000, (unsigned long)us_tcn, (unsigned long)cam_errors, action_txt);
     char txt[24];
     snprintf(txt, sizeof txt, "%lu.%lu img/s", fps10 / 10, fps10 % 10);
     UTIL_LCD_FillRect(0, 400, 800, 30, UTIL_LCD_COLOR_BLUE);  /* erase the previous text */
@@ -141,11 +192,16 @@ void camera_capture_and_show(void)
     n_frames = sum_wait = sum_copy = sum_pre = sum_net = 0;
     t_last_report = now;
   }
+  /* recognised action (result of the previous frame), under the camera image */
+  UTIL_LCD_FillRect(0, 370, 800, 30, UTIL_LCD_COLOR_BLUE);
+  UTIL_LCD_DisplayStringAt(0, 373, (uint8_t *)action_txt, CENTER_MODE);
 
   BSP_CAMERA_Resume(0);                    /* frame N+1 is captured from now on, in parallel with TinyPose */
 
   pose_t pose;
-  if (pose_infer(&pose, &us_net) == 0)
-    draw_skeleton(&pose);                  /* small SDRAM writes during the capture: watch the DCMI error count */
+  if (pose_infer(&pose, &us_net) == 0) {
+    draw_skeleton(&pose);
+    action_update(&pose);                  /* normalisation + buffer + TCN (~1 ms, internal RAM only) */
+  }                  /* small SDRAM writes during the capture: watch the DCMI error count */
   sum_net += us_net;
 }

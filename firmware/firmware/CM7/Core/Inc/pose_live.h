@@ -18,4 +18,12 @@ void pose_preprocess(const uint16_t *frame565, uint32_t *us_pre);
    Returns 0 if OK, -1 if the network failed. */
 int  pose_infer(pose_t *pose, uint32_t *us_net);
 
+/* Action recognition (TCN), also implemented in app_x-cube-ai.c next to the network.
+   action_n_features(): features per frame expected by the TCN (30, or 32 with root motion).
+   action_infer(): window = TBUF_LEN x n_features floats in chronological order -> 6 probabilities
+   (jump, clap, wave, sit, stand, other). Returns 0 if OK. */
+#define ACTION_N_CLASSES 6
+int  action_n_features(void);
+int  action_infer(const float *window, float probs[ACTION_N_CLASSES], uint32_t *us);
+
 #endif /* POSE_LIVE_H */

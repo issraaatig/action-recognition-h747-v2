@@ -8,7 +8,7 @@
 #ifndef TEMPORAL_BUFFER_H
 #define TEMPORAL_BUFFER_H
 
-#define TBUF_LEN 16
+#define TBUF_LEN 8     /* = fenêtre du TCN retenu (A_hm128_tcn_noisy_w8, decisions.md D16) */
 #define TBUF_MAX_FEATURES 32
 
 typedef struct {
