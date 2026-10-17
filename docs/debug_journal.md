@@ -118,3 +118,18 @@ Une entrée par bug résolu. Format :
   (`BSP_CAMERA_Stop` / `Start`) si aucune image en 500 ms. Résultat : 0 erreur sur 2 × ~40 s (à confirmer sur plusieurs minutes).
 - **Leçon** : un bug rare = une collision temporelle. Lister **tous** ceux qui accèdent à la ressource partagée (CPU, DMA2D, LTDC,
   DMA caméra) et **quand**. Et un système embarqué doit se relever seul d'une erreur (ici, redémarrage du périphérique).
+
+## 2026-10-18 [Phase 3.5] OUVERT — erreurs DCMI fréquentes en -O2 (aucune en -O0)
+- **Symptôme** : après passage du projet CM7 en -O2 : `erreurs DCMI` +1 toutes les quelques secondes, redémarrages caméra.
+  Prétraitement 24 → 11 ms, mais FPS inchangé (5,6 img/s) : l'attente passe de 10 à 29 ms (on est limité par le rythme du capteur).
+- **Hypothèses testées** :
+  1. dessin du squelette pendant la capture → **rejetée** (dessin désactivé : les erreurs continuent) ;
+  2. course entre la pause (IRQ de fin d'image) et la reprise (boucle), qui dépend du timing → à étudier ;
+  3. TinyPose → improbable (bibliothèque identique en -O0 / -O2).
+- **Mesures** (SWD, 6 lectures) : `hcamera_dcmi.ErrorCode = 0x61` = OVR (0x01) + **TIMEOUT (0x20)** + DMA (0x40) ;
+  le code est cumulatif (non remis à 0 par Stop/Start), donc on ne sait pas lequel est arrivé en premier. TIMEOUT = un
+  `HAL_DCMI_Suspend` a attendu > 1 s que le bit CAPTURE retombe (probablement une conséquence de l'overrun : plus de fin d'image).
+- **Décision provisoire** : retour en -O0 (stable, même FPS). Piste de fond (Phase 9) : vrai double buffer DMA (mode DBM,
+  M0AR/M1AR, une image par buffer) → la caméra ne s'arrête plus jamais, plus de Suspend/Resume, donc plus de course possible.
+- **Leçon (provisoire)** : un bug qui n'apparaît qu'en changeant l'optimisation = un problème de **timing** (ou de `volatile`),
+  pas de logique. Et une optimisation qui ne change pas le FPS ne vaut pas une perte de stabilité.
