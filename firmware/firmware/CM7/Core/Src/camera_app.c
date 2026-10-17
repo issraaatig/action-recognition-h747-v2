@@ -133,6 +133,33 @@ static void action_update(const pose_t *pose)
     snprintf(action_txt, sizeof action_txt, "%s  %u%%", action_names[best], pct);
 }
 
+/* ---------------- Recording of the board's own skeletons (for retraining the TCN on PC) ----------------
+   One UART line per processed frame, read by tools/record_skeletons.py:
+     SK,<tick ms>,<15 x 7 hex digits>     per joint: x*2 (2 hex), y*2 (2 hex), score*1000 (3 hex)
+   x, y are TinyPose pixels (0..127; x*2 is an exact integer, see pose_postproc.c), score 0..~1.07.
+   Hex keeps the line short (~120 chars = ~10 ms at 115200 baud, sent while the camera captures). */
+#define RECORD_SKELETONS 1
+
+static void record_skeleton(const pose_t *p)
+{
+  static const char hex[] = "0123456789ABCDEF";
+  char line[16 + POSE_NUM_JOINTS * 7 + 3];
+  int n = snprintf(line, sizeof line, "SK,%lu,", (unsigned long)HAL_GetTick());
+  for (int j = 0; j < POSE_NUM_JOINTS; j++) {
+    unsigned x = (unsigned)(p->x[j] * 2.0f + 0.5f), y = (unsigned)(p->y[j] * 2.0f + 0.5f);
+    float sf = p->score[j] < 0.0f ? 0.0f : p->score[j];
+    unsigned s = (unsigned)(sf * 1000.0f + 0.5f);
+    if (x > 255) x = 255;
+    if (y > 255) y = 255;
+    if (s > 0xFFF) s = 0xFFF;
+    line[n++] = hex[x >> 4]; line[n++] = hex[x & 15];
+    line[n++] = hex[y >> 4]; line[n++] = hex[y & 15];
+    line[n++] = hex[s >> 8]; line[n++] = hex[(s >> 4) & 15]; line[n++] = hex[s & 15];
+  }
+  line[n++] = '\r'; line[n++] = '\n'; line[n] = 0;
+  fputs(line, stdout);
+}
+
 /* One step of the live loop (the camera captures frame N+1 while TinyPose works on frame N):
 
    wait for frame N (the interrupt has paused the camera) -> copy it to the screen -> preprocess it
@@ -202,6 +229,7 @@ void camera_capture_and_show(void)
   if (pose_infer(&pose, &us_net) == 0) {
     draw_skeleton(&pose);
     action_update(&pose);                  /* normalisation + buffer + TCN (~1 ms, internal RAM only) */
+    if (RECORD_SKELETONS) record_skeleton(&pose);
   }                  /* small SDRAM writes during the capture: watch the DCMI error count */
   sum_net += us_net;
 }
