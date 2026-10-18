@@ -55,7 +55,19 @@ def record(ser, seconds):
             bad += 1
             continue
         ticks.append(r[0]); joints.append(r[1]); scores.append(r[2])
-    return np.array(ticks), np.array(joints, np.float32), np.array(scores, np.float32), bad
+    return keep_last_seconds(np.array(ticks), np.array(joints, np.float32), np.array(scores, np.float32),
+                             seconds) + (bad,)
+
+
+def keep_last_seconds(ticks, J, S, seconds):
+    """Ne garde que les images des `seconds` dernières secondes, d'après l'horloge DE LA CARTE (tick).
+    reset_input_buffer() ne vide que le tampon de Windows : le ST-LINK garde lui aussi des lignes en réserve,
+    qui arrivent en premier (1re prise : 113 images « en 10 s » mais étalées sur 93 s de tick). Le tick de la carte
+    dit quand chaque image a vraiment été traitée, donc on coupe sur lui."""
+    if len(ticks) == 0:
+        return ticks, J, S
+    keep = ticks >= ticks[-1] - seconds * 1000
+    return ticks[keep], J[keep], S[keep]
 
 
 def main():
