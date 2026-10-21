@@ -36,3 +36,5 @@ firmware/host_tests/*.exe
 firmware/**/.metadata/
 *.launch
 firmware/firmware/.ai/
+
+CLAUDE.md
