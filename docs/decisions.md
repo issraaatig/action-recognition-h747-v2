@@ -122,3 +122,42 @@
   (SIT 20 %, précision clip 0,485 / 0,447 : non retenu). Sans mouvement, le TCN juge la FORME de la pose ; or une partie des
   poses JHMDB « immobiles » sont réellement assises. Le vrai problème est l'écart JHMDB ↔ caméra de la carte
   → prochaine piste : enregistrer des squelettes produits par la carte elle-même (UART) et affiner le TCN dessus.
+
+## D17 — Classes réduites à WAVE, SIT, other + entraînement avec les prises de la carte (2026-10-21)
+- **Écart au cahier des charges** (CLAUDE.md §2 : JUMP, CLAP, WAVE, SIT, STAND) : les essais successifs montrent que
+  notre chaîne ne peut pas séparer certaines paires, pour des raisons **structurelles** :
+  - CLAP ↔ WAVE : ne diffèrent que par les poignets, joint le plus faible de TinyPose (PCK 0,62), et le geste (2-3 Hz)
+    est trop rapide pour 5,5 img/s (on n'échantillonne correctement que sous ~2,7 Hz) ;
+  - SIT ↔ STAND : mouvements inverses ; impossible d'enregistrer « stand » sans faire « sit » (étiquettes mélangées) ;
+  - JUMP ↔ SIT : la normalisation (origine = ventre) efface la translation verticale, seule signature du saut ;
+    il reste les genoux pliés, comme pour s'asseoir. Piste non testée : `--root-motion` (32 features, déjà géré en C).
+- Entraînement : JHMDB (clap, stand, jump et 16 autres classes → other) + **prises de la carte** (`record_skeletons.py`,
+  4 wave + 4 sit, pas 1, sans bruit artificiel) ; 1 prise par classe gardée pour le test. `--idle` dégrade la carte
+  (sit 15/16 → 3/16 avec `--idle 2`) : non retenu.
+
+| Modèle (fenêtre 8, pas 5, `--noisy 1`) | Classes | JHMDB fenêtre | Carte fenêtre |
+|---|---|---|---|
+| A_hm128_tcn_noisy_w8_board | 6 | 0.534 | 0.321 |
+| A_hm128_tcn_noisy_w8_board | 4 (sans clap, stand) | 0.639 | 0.455 |
+| A_hm128_tcn_noisy_idle2_w8_board | 4 | 0.665 | 0.391 |
+| **A_hm128_tcn_noisy_w8_board (retenu)** | **3 (wave, sit, other)** | **0.688** | **0.625** |
+
+- Limites : test carte = 1 prise par classe (~24 fenêtres, ± 20 points) et **aucune prise other** dans ce test (fausses
+  alarmes non mesurées) → à refaire en validation croisée avec des prises idle/other bien cadrées.
+- Leçon d'enregistrement : TinyPose ne voit que le carré central 240×240 ; chevilles détectées 0 % et hanches 0 % bras levés
+  sur les prises du 2026-10-21 → se placer en entier dans le carré (pieds + mains levées), bonne lumière.
+
+## D18 — Modèle final : WAVE, SIT, other (2026-10-21)
+- **Classes retenues** : wave, sit, other (other = debout immobile + autres mouvements). JUMP n'est pas ajouté, CLAP et STAND sont supprimés (D17).
+- **Pourquoi pas JUMP** : `--root-motion` (32 features) fait tomber WAVE à 1/24 sur la carte. Sans root-motion, JUMP est reconnu (validation croisée 0,70) mais `other` baisse de 0,75 à 0,57 et une partie part en jump : règle de décision non atteinte.
+- **Validation croisée** (`pc/08_cv_board.py`, 15 tours : chaque prise de la carte sert de test à tour de rôle ; 30 époques, sans arrêt anticipé) :
+
+| Configuration | Score moyen | wave | sit | other | jump |
+|---|---|---|---|---|---|
+| 3 classes (retenue) | 0,77 à 0,79 (2 lancements) | 0,61 à 0,73 | 0,67 à 0,71 | 0,75 à 0,78 | – |
+| 4 classes, avec JUMP | 0,61 | 0,80 | 0,73 | 0,57 | 0,65 |
+
+- **Modèle déployé** : `A_hm128_tcn_noisy_w8_board`, entraîné sur JHMDB + toutes les prises valides de la carte, avec 3 prises tenues pour le test (wave, sit, idle). Test JHMDB 0,823 (contre 0,688 avant ; l'écart de ±5 points entre entraînements rend ce gain incertain). L'ancien modèle est gardé dans `A_hm128_tcn_noisy_w8_board_v1/`.
+- **Essai en direct** (2026-10-21, `RUN_TESTS = 0`) : debout immobile → `...` (other 80 à 97 %) ; assis → SIT 88 à 99 % pendant environ 20 s ; WAVE 49 à 94 %, instable, mélangé à `...`.
+- **Limites** : une seule personne ; prises à 5,5 img/s (quelques-unes à 3,8) ; joints sûrs 46 à 59 % pour WAVE ; `other` reste confondu avec SIT dans une partie des fenêtres (validation croisée).
+- **Vérification carte ↔ PC** : vecteurs de test régénérés pour ce modèle, erreur max 0 e-6 (`[TEST] tcn`), sortie 3 valeurs.

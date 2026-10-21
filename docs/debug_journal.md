@@ -58,7 +58,7 @@ Une entrée par bug résolu. Format :
 ### Bug 1 : la fonction `MX_DCMI_Init` de CubeMX remplace en silence celle du BSP
 - **Symptôme** : `[CAM] init OK` (le capteur répond en I2C), puis `pas d'image en 500 ms` en boucle ; écran bleu seul.
 - **Hypothèses** : 1. DCMI/DMA mal configurés ; 2. IRQ de fin d'image non reçue (handler manquant) ; 3. capteur muet ; 4. cache.
-- **Méthode** (SWD hotplug, `-r32`) : DCMI `CR = 0` (jamais activé), DMA2 Stream3 `NDTR = 0x9600` (rien transféré),
+- **Méthode** (SWD hotplug, `-r32`) : DCMI `CR = 0` (jamais activé), DMA2 Stream3 `NDTR =  0x9600` (rien transféré),
   **`PAR = 0x00000028`** au lieu de `0x48020028`. 0x28 = décalage du registre DR → calculé avec `Instance = NULL`.
   Puis `.map` / `nm` : `MX_DCMI_Init` défini dans **main.o**, la version du BSP écartée.
 - **Cause réelle** : la case « Generate Code » de MX_DCMI_Init s'était recochée dans CubeMX. CubeMX a généré `void MX_DCMI_Init(void)`
@@ -133,3 +133,11 @@ Une entrée par bug résolu. Format :
   M0AR/M1AR, une image par buffer) → la caméra ne s'arrête plus jamais, plus de Suspend/Resume, donc plus de course possible.
 - **Leçon (provisoire)** : un bug qui n'apparaît qu'en changeant l'optimisation = un problème de **timing** (ou de `volatile`),
   pas de logique. Et une optimisation qui ne change pas le FPS ne vaut pas une perte de stabilité.
+
+## 2026-10-18 → 2026-10-21 [Phase 3.6] Biais SIT : la carte affiche SIT quand la personne est debout immobile
+- **Symptôme** : en direct, debout immobile → `SIT` (80 à 99 %), et une part importante des mouvements aussi.
+- **Hypothèses** (par probabilité) : (1) écart entre les squelettes JHMDB et ceux de la caméra de la carte (angle, distance, bruit TinyPose) ; (2) absence de fenêtres « immobiles » dans l'entraînement ; (3) bug de normalisation C ↔ Python.
+- **Méthode** : test PC sur des fenêtres immobiles ; `--idle` testé (aucun effet sur la carte) ; vecteurs de test TCN et normalisation vérifiés à 0 e-6 (donc pas (3)).
+- **Cause** : (1). Le TCN n'avait jamais vu la caméra de la carte.
+- **Correction** : enregistrement de prises avec `tools/record_skeletons.py` (wave, sit, idle, other), réentraînement `05_train_temporal.py` qui les ajoute à JHMDB ; modèle à 3 classes (decisions.md D17 et D18). En direct : debout immobile → `...` (other 80 à 97 %).
+- **Leçon** : un test sur une seule prise par classe est trompeur (0,625 annoncé, 0,77 en validation croisée). Et un chargeur de données qui mappe des labels inconnus sur « other » fait passer des prises en silence : il ignore maintenant les labels hors classes.

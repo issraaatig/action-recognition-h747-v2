@@ -114,3 +114,20 @@ puis amélioration prévue en Phase 9 (ROI tracking : recadrer autour du squelet
 | TCN fenêtre 8 (X-CUBE-AI, float) | 24 Ko poids, 2 Ko activations, entrée 960 o |
 | Erreurs DCMI | 0 sur ~65 s |
 | Premier essai en direct (1 personne, sans protocole) | WAVE reconnu (66-69 %), JUMP une fois (75 %) ; **biais fort vers SIT** (souvent 60-80 %) ; CLAP jamais au-dessus du seuil |
+
+### TCN 3 classes WAVE / SIT / other, affiné sur les prises de la carte (decisions.md D17) — 2026-10-21
+| Mesure | Valeur |
+|---|---|
+| Validation sur la carte (vecteur de test) | erreur max probas 0, sortie 12 o, **TCN 0,37 ms**, 2 Ko activations |
+| Essai en direct (wave → assis → debout immobile, ~75 s) | WAVE 92-98 % stable 11 s ; assis : SIT 91-99 % (≈ 40 s sur 47), 2 courtes fausses alarmes WAVE 74-87 % en s'installant, 1 trou `...` de 5 s ; **debout immobile : `...` (other 98-99 %)** → biais SIT corrigé |
+| Erreurs DCMI | 1 en ~75 s (redémarrage automatique) |
+
+## Modèle final WAVE / SIT / other (decisions.md D18) — 2026-10-21
+| Mesure | Valeur |
+|---|---|
+| Validation croisée carte, 15 tours (3 classes) | score moyen 0,77 à 0,79 ; rappel wave 0,61 à 0,73, sit 0,67 à 0,71, other 0,75 à 0,78 |
+| Validation croisée carte (4 classes, avec JUMP) | score moyen 0,61 ; jump 0,65 ; other 0,57 (rejeté) |
+| Test JHMDB (modèle final) | précision 0,823 |
+| Vecteur de test TCN sur la carte | erreur max 0 e-6, TCN 0,37 ms, 3 sorties |
+| Essai en direct (wave, assis, immobile, marche) | immobile → `...` (80 à 97 %) ; assis → SIT 88 à 99 % (≈ 20 s) ; WAVE 49 à 94 %, instable |
+| Erreurs DCMI | 1 en environ 75 s, redémarrage automatique |
